@@ -1,4 +1,6 @@
 import json
+
+import pytest
 from pathlib import Path
 
 from dev_guard.checks import scan
@@ -105,7 +107,7 @@ def test_case_insensitive_name(tmp_path):
 
 def test_oversize_file(tmp_path):
     findings = scan_text(tmp_path, " " * (MAX_FILE_BYTES + 1))
-    assert got(findings) == {("H3", "low", "oversize_file", 1)}
+    assert got(findings) == {("H3", "med", "oversize_file", 1)}
 
 
 def test_symlinked_package_json(tmp_path):
@@ -113,3 +115,9 @@ def test_symlinked_package_json(tmp_path):
     real.write_text("{}")
     (tmp_path / "package.json").symlink_to(real)
     assert got(scan(tmp_path, extra_files=())) == {("H3", "med", "symlinked_config", 1)}
+
+
+@pytest.mark.parametrize("key", ["prepare", "prepublish", "prepublishOnly", "prepack", "postpack"])
+def test_more_lifecycle_scripts(tmp_path, key):
+    text = json.dumps({"scripts": {key: CURL_SH}}, indent=2)
+    assert ("H3", "high", "network_fetch", 3) in got(scan_text(tmp_path, text))

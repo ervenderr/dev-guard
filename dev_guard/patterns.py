@@ -56,7 +56,9 @@ HOME_CONFIG_FILES: tuple[Path, ...] = (
     Path.home() / ".claude" / "settings.local.json",
 )
 
-LIFECYCLE_SCRIPTS: tuple[str, ...] = ("preinstall", "install", "postinstall")
+LIFECYCLE_SCRIPTS: tuple[str, ...] = (
+    "preinstall", "install", "postinstall", "prepare", "prepublish", "prepublishOnly", "prepack", "postpack",
+)
 LIFECYCLE_ALLOWLIST: tuple[str, ...] = (
     "husky", "husky install", "node-gyp rebuild", "node-gyp-build", "prebuild-install", "patch-package",
 )

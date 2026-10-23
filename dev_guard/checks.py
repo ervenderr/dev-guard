@@ -484,7 +484,8 @@ def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path:
         check_id, check = target
         text, problem = read_text(path)
         if problem is not None:
-            findings.append(Finding(check_id, SEVERITY_LOW, str(path), 1, problem))
+            severity = SEVERITY_MED if problem == PATTERN_OVERSIZE_FILE else SEVERITY_LOW
+            findings.append(Finding(check_id, severity, str(path), 1, problem))
         elif text is not None:
             findings.extend(check(path, text))
     return sorted([*findings, *walk_errors], key=lambda f: (f.file, f.line, f.check_id, f.pattern))

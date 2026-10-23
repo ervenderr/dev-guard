@@ -94,7 +94,7 @@ def test_case_insensitive_path(tmp_path):
 
 def test_oversize_file(tmp_path):
     g = got(wf(tmp_path, "#" * (MAX_FILE_BYTES + 1)))
-    assert g == {("H4", "low", "oversize_file", 1)}
+    assert g == {("H4", "med", "oversize_file", 1)}
 
 
 def test_symlinked_file(tmp_path):

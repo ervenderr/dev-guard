@@ -37,7 +37,7 @@ def test_git_skipped(tmp_path):
 def test_oversize_reported(tmp_path):
     p = put(tmp_path / "root" / ".claude" / "settings.json", MAL + " " * MAX_FILE_BYTES)
     assert p.stat().st_size > MAX_FILE_BYTES
-    assert run(tmp_path / "root") == [Finding("H1", "low", str(p), 1, "oversize_file")]
+    assert run(tmp_path / "root") == [Finding("H1", "med", str(p), 1, "oversize_file")]
 
 
 def test_symlinked_dir_skipped(tmp_path):
