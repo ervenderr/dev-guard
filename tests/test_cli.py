@@ -1,0 +1,136 @@
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from dev_guard import cli
+from dev_guard.checks import Finding
+from dev_guard.cli import format_table, main, sanitize
+
+FIXTURES = Path(__file__).parent / "fixtures"
+REPO_ROOT = Path(__file__).parent.parent
+CHECKS = ["h1", "h2", "h3", "h4", "h5"]
+
+
+def _dirs(kind: str) -> list[str]:
+    return [str(FIXTURES / h / kind) for h in CHECKS]
+
+
+def test_single_malicious_table(capsys):
+    assert main([str(FIXTURES / "h1" / "malicious")]) == 1
+    out = capsys.readouterr().out
+    header = out.splitlines()[0]
+    for col in ("SEV", "ID", "FILE:LINE", "PATTERN"):
+        assert col in header
+    assert any(
+        "high" in ln and "H1" in ln and "settings.json:" in ln for ln in out.splitlines()
+    )
+
+
+def test_all_malicious_has_every_id(capsys):
+    assert main(_dirs("malicious")) == 1
+    out = capsys.readouterr().out
+    for cid in ("H1", "H2", "H3", "H4", "H5"):
+        assert cid in out
+
+
+def test_all_clean(capsys):
+    assert main(_dirs("clean")) == 0
+    assert capsys.readouterr().out == "No findings.\n"
+
+
+def test_sort_order_and_summary():
+    fs = [
+        Finding("H2", "low", "b", 1, "p"),
+        Finding("H1", "med", "a", 1, "p"),
+        Finding("H1", "high", "z", 9, "p"),
+        Finding("H1", "high", "z", 2, "p"),
+    ]
+    from dev_guard.cli import run_scan  # noqa: F401  (sorting lives in run_scan)
+
+    lines = format_table(sorted(fs, key=lambda f: (cli.SEVERITY_ORDER[f.severity], f.file, f.line))).splitlines()
+    assert lines[-1] == "2 high, 1 med, 1 low"
+    assert [ln.split(" | ")[0].strip() for ln in lines[1:-1]] == ["high", "high", "med", "low"]
+
+
+def test_run_scan_sorted_and_deduped():
+    d = Path(_dirs("malicious")[0])
+    once = cli.run_scan([d], ())
+    twice = cli.run_scan([d, d], ())
+    assert once == twice and len(set(once)) == len(once)
+    keys = [cli.SEVERITY_ORDER[f.severity] for f in once]
+    assert keys == sorted(keys)
+
+
+def test_missing_path(capsys):
+    assert main(["/nonexistent/xyz"]) == 2
+    cap = capsys.readouterr()
+    assert cap.out == "" and "/nonexistent/xyz" in cap.err
+
+
+def test_file_path(capsys):
+    f = FIXTURES / "h1" / "malicious"
+    f = next(p for p in f.rglob("*") if p.is_file())
+    assert main([str(f)]) == 2
+    assert "not a directory" in capsys.readouterr().err
+
+
+def test_duplicate_path_rows_once(capsys):
+    d = _dirs("malicious")[0]
+    main([d])
+    single = capsys.readouterr().out
+    main([d, d])
+    assert capsys.readouterr().out == single
+
+
+def test_sanitize_control_chars():
+    f = Finding("H1", "high", "a\nb\x1b[31mc\rd\te", 3, "p")
+    out = format_table([f])
+    assert "\x1b" not in out and "\r" not in out and "\t" not in out
+    assert len(out.splitlines()) == 3  # header, row, summary
+
+
+def test_sanitize_backslash_unambiguous():
+    assert sanitize("a\\x1bb") == "a\\\\x1bb"
+    assert sanitize("a\x1bb") == "a\\x1bb"
+    assert sanitize("a\\x1bb") != sanitize("a\x1bb")
+
+
+def test_explicit_path_skips_home_config(monkeypatch):
+    seen = {}
+
+    def fake_scan(root, extra_files=(), **kw):
+        seen.setdefault("extras", []).append(tuple(extra_files))
+        return []
+
+    monkeypatch.setattr(cli, "scan", fake_scan)
+    assert main(_dirs("clean")[:2]) == 0
+    assert seen["extras"] == [(), ()]
+
+
+def test_internal_error(monkeypatch, capsys):
+    def boom(*a, **k):
+        raise RuntimeError("DGSECRET_internal")
+
+    monkeypatch.setattr(cli, "run_scan", boom)
+    assert main([_dirs("clean")[0]]) == 70
+    cap = capsys.readouterr()
+    assert cap.out == ""
+    assert len(cap.err.strip().splitlines()) == 1
+    assert "internal error" in cap.err and "RuntimeError" in cap.err
+    assert "DGSECRET_internal" not in cap.err and "Traceback" not in cap.err
+
+
+def test_broken_pipe():
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "dev_guard", str(FIXTURES)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=REPO_ROOT,
+    )
+    proc.stdout.close()
+    err = proc.stderr.read().decode()
+    proc.stderr.close()
+    assert proc.wait() == 1
+    assert "Traceback" not in err and "BrokenPipeError" not in err
