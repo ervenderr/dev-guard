@@ -119,6 +119,9 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
     try:
         exclude = tuple(os.path.realpath(Path(e).expanduser()) for e in args.exclude)
+        for e in exclude:
+            if not os.path.exists(e):
+                sys.stderr.write(f"dev-guard: warning: exclude path does not exist: {sanitize(e)}\n")
         findings = run_scan(roots, extra_files, exclude)
         code = EXIT_HIGH if any(f.severity == SEVERITY_HIGH for f in findings) else EXIT_CLEAN
         text = format_json(findings) if args.json else format_table(findings)

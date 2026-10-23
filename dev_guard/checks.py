@@ -84,9 +84,25 @@ def iter_files(root: Path, errors: list[Finding] | None = None, exclude: Collect
         if errors is not None:
             errors.append(Finding(CHECK_WALK, SEVERITY_LOW, str(err.filename), 1, PATTERN_UNREADABLE_DIR))
 
-    if exclude:
-        real_root = os.path.realpath(root)
-        if any(real_root == e or real_root.startswith(e + os.sep) for e in exclude):
+    # compare by device/inode, not path text: APFS is case-insensitive, realpath keeps the spelling given
+    excluded = set()
+    for e in exclude:
+        try:
+            st = os.stat(e)
+        except OSError:
+            continue  # nonexistent: nothing to skip (the CLI warns)
+        excluded.add((st.st_dev, st.st_ino))
+
+    def is_excluded(path: str) -> bool:
+        try:
+            st = os.stat(path)
+        except OSError:
+            return False
+        return (st.st_dev, st.st_ino) in excluded
+
+    if excluded:
+        real_root = Path(os.path.realpath(root))
+        if any(is_excluded(str(p)) for p in (real_root, *real_root.parents)):
             return
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False, onerror=on_error):
         # symlinks are never followed, but are yielded so scan() can report config ones
@@ -94,7 +110,7 @@ def iter_files(root: Path, errors: list[Finding] | None = None, exclude: Collect
         dirnames[:] = [
             d for d in dirnames
             if d not in SKIP_DIRS and not os.path.islink(os.path.join(dirpath, d))
-            and not (exclude and os.path.realpath(os.path.join(dirpath, d)) in exclude)
+            and not (excluded and is_excluded(os.path.join(dirpath, d)))
         ]
         for name in filenames:
             yield Path(dirpath, name)

@@ -298,11 +298,21 @@ def test_exclude_trailing_slash_and_symlink(tmp_path, capsys):
         assert all(f["file"].startswith(str(tmp_path / "b")) for f in out["findings"])
 
 
-def test_exclude_nonexistent_is_ignored(tmp_path, capsys):
+def test_exclude_nonexistent_warns_and_excludes_nothing(tmp_path, capsys):
     _two_copies(tmp_path)
     base = _json_run(capsys, ["--json", str(tmp_path)])
-    got = _json_run(capsys, ["--json", str(tmp_path), "--exclude", str(tmp_path / "nope")])
-    assert got == base
+    code = main(["--json", str(tmp_path), "--exclude", str(tmp_path / "nope")])
+    cap = capsys.readouterr()
+    assert (code, json.loads(cap.out)) == base
+    assert "exclude path does not exist" in cap.err
+
+
+def test_exclude_matches_case_insensitively_on_case_insensitive_fs(tmp_path, capsys):
+    _two_copies(tmp_path)
+    if not (tmp_path / "A").exists():
+        pytest.skip("case-sensitive filesystem")
+    code, out = _json_run(capsys, ["--json", str(tmp_path), "--exclude", str(tmp_path / "A")])
+    assert all(f["file"].startswith(str(tmp_path / "b")) for f in out["findings"])
 
 
 def test_exclude_empty_is_usage_error(capsys):
