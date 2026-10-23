@@ -10,15 +10,19 @@ WORKFLOW = Path(__file__).parent.parent / "n8n" / "dev-guard-alert.json"
 
 HARNESS = """
 const fs = require('fs');
-const [code, payloadsPath] = process.argv.slice(2);
+const [code, markCode, payloadsPath] = process.argv.slice(2);
 const payloads = JSON.parse(fs.readFileSync(payloadsPath, 'utf8'));
 const staticData = {};
+const getData = () => staticData;
 const results = [];
-for (const body of payloads) {
+for (const { body, commit } of payloads) {
   const $input = { first: () => ({ json: { body } }) };
-  const $getWorkflowStaticData = () => staticData;
-  const fn = new Function('$input', '$getWorkflowStaticData', code);
-  results.push(fn($input, $getWorkflowStaticData));
+  const out = new Function('$input', '$getWorkflowStaticData', code)($input, getData);
+  results.push(out);
+  if (commit) {  // the Telegram send succeeded: run the Mark Seen node
+    const $ = () => ({ first: () => out[0] });
+    new Function('$', '$input', '$getWorkflowStaticData', markCode)($, { all: () => out }, getData);
+  }
 }
 console.log(JSON.stringify(results));
 """
@@ -42,6 +46,7 @@ def test_top_level_and_node_types(wf):
     assert nodes["Filter New Highs"]["type"] == "n8n-nodes-base.code"
     assert nodes["Any New?"]["type"] == "n8n-nodes-base.if"
     assert nodes["Telegram"]["type"] == "n8n-nodes-base.telegram"
+    assert nodes["Mark Seen"]["type"] == "n8n-nodes-base.code"
 
 
 def test_connections(wf):
@@ -50,6 +55,7 @@ def test_connections(wf):
     assert c["Webhook"]["main"][0][0]["node"] == "Filter New Highs"
     assert c["Filter New Highs"]["main"][0][0]["node"] == "Any New?"
     assert c["Any New?"]["main"][0][0]["node"] == "Telegram"
+    assert c["Telegram"]["main"][0][0]["node"] == "Mark Seen"
     for src, v in c.items():
         assert src in names
         for branch in v["main"]:
@@ -86,27 +92,48 @@ def _f(sev, check, line):
     return {"check_id": check, "severity": sev, "file": f"/p/{check}.json", "line": line, "pattern": "pat" + check}
 
 
-@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
-def test_dedupe_behaviour(wf, tmp_path):
-    js = _nodes(wf)["Filter New Highs"]["parameters"]["jsCode"]
-    base = [_f("high", "H1", 1), _f("high", "H2", 2), _f("med", "H3", 3), _f("low", "H4", 4)]
-    payloads = [
-        {"findings": base, "summary": {}},
-        {"findings": base, "summary": {}},
-        {"findings": base + [_f("high", "H5", 5)], "summary": {}},
-        {},
-    ]
+def _run_node(wf, tmp_path, payloads):
+    nodes = _nodes(wf)
     (tmp_path / "h.js").write_text(HARNESS)
     (tmp_path / "p.json").write_text(json.dumps(payloads))
     proc = subprocess.run(
-        ["node", str(tmp_path / "h.js"), js, str(tmp_path / "p.json")],
+        ["node", str(tmp_path / "h.js"), nodes["Filter New Highs"]["parameters"]["jsCode"],
+         nodes["Mark Seen"]["parameters"]["jsCode"], str(tmp_path / "p.json")],
         capture_output=True, text=True, timeout=30,
     )
     assert proc.returncode == 0, proc.stderr
-    r = [x[0]["json"] for x in json.loads(proc.stdout)]
+    return [x[0]["json"] for x in json.loads(proc.stdout)]
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_dedupe_behaviour(wf, tmp_path):
+    base = [_f("high", "H1", 1), _f("high", "H2", 2), _f("med", "H3", 3), _f("low", "H4", 4)]
+    payloads = [
+        {"body": {"findings": base, "summary": {}}, "commit": True},
+        {"body": {"findings": base, "summary": {}}, "commit": True},
+        {"body": {"findings": base + [_f("high", "H5", 5)], "summary": {}}, "commit": True},
+        {"body": {}, "commit": True},
+    ]
+    r = _run_node(wf, tmp_path, payloads)
     assert r[0]["count"] == 2
     assert "H1" in r[0]["text"] and "H2" in r[0]["text"]
     assert "H3" not in r[0]["text"] and "H4" not in r[0]["text"]
     assert r[1]["count"] == 0
     assert r[2]["count"] == 1 and "H5" in r[2]["text"] and "H1" not in r[2]["text"]
     assert r[3]["count"] == 0
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_failed_send_does_not_mark_seen(wf, tmp_path):
+    body = {"findings": [_f("high", "H1", 1)], "summary": {}}
+    payloads = [{"body": body, "commit": False}, {"body": body, "commit": True}, {"body": body, "commit": True}]
+    r = _run_node(wf, tmp_path, payloads)
+    assert [x["count"] for x in r] == [1, 1, 0]
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_message_is_capped_and_overflow_stays_unseen(wf, tmp_path):
+    body = {"findings": [_f("high", f"H{i:03d}", i) for i in range(50)], "summary": {}}
+    r = _run_node(wf, tmp_path, [{"body": body, "commit": True}] * 4)
+    assert all(len(x["text"]) <= 4000 for x in r)
+    assert r[0]["count"] == 20 and r[1]["count"] == 20 and r[2]["count"] == 10 and r[3]["count"] == 0

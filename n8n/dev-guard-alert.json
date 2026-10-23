@@ -27,7 +27,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $input.first().json.body;\nconst findings = body && Array.isArray(body.findings) ? body.findings : [];\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nconst fresh = [];\nfor (const f of findings) {\n  if (!f || f.severity !== 'high') continue;\n  const fp = [f.check_id, f.file, f.line, f.pattern].join('|');\n  if (store.seen[fp]) continue;\n  store.seen[fp] = true;\n  fresh.push(f.check_id + ' ' + f.file + ':' + f.line + ' ' + f.pattern);\n}\nreturn [{ json: { count: fresh.length, text: 'dev-guard: ' + fresh.length + ' new high finding(s)\\n' + fresh.join('\\n') } }];"
+        "jsCode": "const body = $input.first().json.body;\nconst findings = body && Array.isArray(body.findings) ? body.findings : [];\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nconst MAX_LINES = 20;\nconst MAX_LINE_CHARS = 180;\nconst fps = [];\nconst lines = [];\nfor (const f of findings) {\n  if (!f || f.severity !== 'high') continue;\n  const fp = [f.check_id, f.file, f.line, f.pattern].join('|');\n  if (store.seen[fp]) continue;\n  if (lines.length >= MAX_LINES) break;\n  fps.push(fp);\n  lines.push((f.check_id + ' ' + f.file + ':' + f.line + ' ' + f.pattern).slice(0, MAX_LINE_CHARS));\n}\nreturn [{ json: { count: lines.length, fps, text: 'dev-guard: ' + lines.length + ' new high finding(s)\\n' + lines.join('\\n') } }];"
       }
     },
     {
@@ -79,6 +79,20 @@
           "name": "Telegram account"
         }
       }
+    },
+    {
+      "name": "Mark Seen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Runs only after Telegram succeeded, so a failed send is retried on the next scan.\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nfor (const fp of $('Filter New Highs').first().json.fps) store.seen[fp] = true;\nreturn $input.all();"
+      }
     }
   ],
   "connections": {
@@ -114,6 +128,17 @@
           }
         ],
         []
+      ]
+    },
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Mark Seen",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
