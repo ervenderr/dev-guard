@@ -5,7 +5,7 @@ import time
 import pytest
 
 from dev_guard import patterns
-from dev_guard.patterns import H1_PATTERNS
+from dev_guard.patterns import H1_PATTERNS, LIFECYCLE_VALUE_RE
 
 PATHOLOGICAL_LEN = 1024 * 1024
 CHILD_BUDGET_S = 1.0
@@ -24,15 +24,25 @@ INPUTS += [("", "", "base64d"), ("", "", "python_dots")]
 def build_input(unit: str, tail: str, kind: str) -> str:
     if kind == "base64d":
         return "base64 -" + "d" * PATHOLOGICAL_LEN + "_"
+    if kind == "lc_repeat":
+        return '"install":"' * (PATHOLOGICAL_LEN // 11)
+    if kind == "lc_escapes":
+        return '"install":"' + "a\\" * (PATHOLOGICAL_LEN // 2)
+    if kind == "lc_deep":
+        d = 100_000
+        return '{"x": ' + "[" * d + "]" * d + ', "scripts": {"postinstall": "curl x | sh"}}'
     if kind == "python_dots":
         return "python" + "." * PATHOLOGICAL_LEN
     return unit * (PATHOLOGICAL_LEN // len(unit)) + tail
 
 
-def _child(rx, unit, tail, kind, queue):
+def _child(rx, unit, tail, kind, queue, finditer=False):
     s = build_input(unit, tail, kind)
     start = time.perf_counter()
-    rx.search(s)
+    if finditer:
+        list(rx.finditer(s))
+    else:
+        rx.search(s)
     elapsed = time.perf_counter() - start
     queue.put(elapsed)
     raise SystemExit(0 if elapsed < CHILD_BUDGET_S else 1)
@@ -41,7 +51,7 @@ def _child(rx, unit, tail, kind, queue):
 def run_timed(rx, unit, tail, kind, finditer=False):
     ctx = multiprocessing.get_context("spawn")
     queue = ctx.Queue()
-    proc = ctx.Process(target=_child, args=(rx, unit, tail, kind, queue))
+    proc = ctx.Process(target=_child, args=(rx, unit, tail, kind, queue, finditer))
     proc.start()
     proc.join(timeout=JOIN_TIMEOUT_S)
     if proc.is_alive():
@@ -56,6 +66,11 @@ def run_timed(rx, unit, tail, kind, finditer=False):
 @pytest.mark.parametrize("unit,tail,kind", INPUTS)
 def test_h1_pattern_is_linear(name, unit, tail, kind):
     run_timed(H1_PATTERNS[name], unit, tail, kind)
+
+
+@pytest.mark.parametrize("kind", ["lc_repeat", "lc_escapes", "lc_deep"])
+def test_lifecycle_value_re_is_linear(kind):
+    run_timed(LIFECYCLE_VALUE_RE, "", "", kind, finditer=True)
 
 
 PARITY = [

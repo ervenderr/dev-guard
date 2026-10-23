@@ -8,6 +8,7 @@ SEVERITY_LOW = "low"
 
 CHECK_H1 = "H1"
 CHECK_H2 = "H2"
+CHECK_H3 = "H3"
 CHECK_WALK = "walk"
 
 _SHELLS = r"(?:sh|bash|zsh|dash|ksh|fish)"
@@ -56,4 +57,14 @@ MAX_LINE_LEN: int = 4096
 HOME_CONFIG_FILES: tuple[Path, ...] = (
     Path.home() / ".claude" / "settings.json",
     Path.home() / ".claude" / "settings.local.json",
+)
+
+LIFECYCLE_SCRIPTS: tuple[str, ...] = ("preinstall", "install", "postinstall")
+LIFECYCLE_ALLOWLIST: tuple[str, ...] = (
+    "husky", "husky install", "node-gyp rebuild", "node-gyp-build", "prebuild-install", "patch-package",
+)
+# shortcut: fallback matches lifecycle keys anywhere in the file, not only under "scripts"; only runs on RecursionError files
+LIFECYCLE_VALUE_RE = re.compile(
+    '"(?:' + "|".join(map(re.escape, LIFECYCLE_SCRIPTS)) + r')"\s*:\s*"(?P<value>(?:[^"\\]|\\.){0,%d})(?P<end>")?'
+    % MAX_LINE_LEN
 )

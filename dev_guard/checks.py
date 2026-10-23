@@ -2,16 +2,21 @@
 import json
 import os
 import stat
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 from dev_guard.patterns import (
     CHECK_H1,
+    CHECK_H3,
     CHECK_WALK,
     CHECK_H2,
     FOLDER_OPEN_RE,
     H1_PATTERNS,
+    LIFECYCLE_ALLOWLIST,
+    LIFECYCLE_SCRIPTS,
+    LIFECYCLE_VALUE_RE,
+    MAX_LINE_LEN,
     HOME_CONFIG_FILES,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
@@ -20,6 +25,7 @@ from dev_guard.patterns import (
     PATTERN_MALFORMED_JSON,
     PATTERN_NOT_IN_ALLOWLIST,
     PATTERN_OVERSIZE_FILE,
+    PATTERN_OVERSIZE_LINE,
     PATTERN_RUN_ON_FOLDER_OPEN,
     PATTERN_SYMLINKED_CONFIG,
     PATTERN_UNREADABLE_DIR,
@@ -113,11 +119,11 @@ def find_line(text: str, needle: str) -> int:
 
 
 # shortcut: prefix match trusts any args after git/npx, so git -c alias.x='!sh ...' or npx <unknown-pkg> pass as allowlisted; upgrade to argv parsing if seen in the wild
-def is_allowlisted(command: str) -> bool:
+def is_allowlisted(command: str, allowlist: tuple[str, ...] = HOOK_ALLOWLIST) -> bool:
     cmd = command.strip()
     if SHELL_CHAIN_RE.search(cmd):
         return False
-    return any(cmd == a or cmd.startswith(a + " ") for a in HOOK_ALLOWLIST)
+    return any(cmd == a or cmd.startswith(a + " ") for a in allowlist)
 
 
 def check_claude_settings(path: Path, text: str) -> list[Finding]:
@@ -195,6 +201,53 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
     return findings
 
 
+def _lifecycle_findings(path: Path, value: str, line: int) -> list[Finding]:
+    if len(value) > MAX_LINE_LEN:
+        return [Finding(CHECK_H3, SEVERITY_LOW, str(path), line, PATTERN_OVERSIZE_LINE)]
+    hits = [Finding(CHECK_H3, SEVERITY_HIGH, str(path), line, name)
+            for name, rx in H1_PATTERNS.items() if rx.search(value)]
+    if not hits and not is_allowlisted(value, LIFECYCLE_ALLOWLIST):
+        hits.append(Finding(CHECK_H3, SEVERITY_MED, str(path), line, PATTERN_NOT_IN_ALLOWLIST))
+    return hits
+
+
+def _deep_json_fallback(path: Path, text: str) -> list[Finding]:
+    # valid JSON too deep for Python's parser: whole-text scan, line derived from match offset
+    out = [Finding(CHECK_H3, SEVERITY_LOW, str(path), 1, PATTERN_MALFORMED_JSON)]
+    line, prev = 1, 0
+    for m in LIFECYCLE_VALUE_RE.finditer(text):
+        line += text.count("\n", prev, m.start())
+        prev = m.start()
+        if m["end"] is None:
+            out.append(Finding(CHECK_H3, SEVERITY_LOW, str(path), line, PATTERN_OVERSIZE_LINE))
+            continue
+        try:
+            value = json.loads('"' + m["value"] + '"')
+        except ValueError:
+            value = m["value"]
+        out += _lifecycle_findings(path, value, line)
+    return out
+
+
+def check_package_json(path: Path, text: str) -> list[Finding]:
+    try:
+        data = json.loads(text)
+    except RecursionError:
+        return _deep_json_fallback(path, text)
+    except ValueError as err:  # includes JSONDecodeError
+        line = err.lineno if isinstance(err, json.JSONDecodeError) else 1
+        return [Finding(CHECK_H3, SEVERITY_LOW, str(path), line, PATTERN_MALFORMED_JSON)]
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    if not isinstance(scripts, dict):
+        return []
+    findings: list[Finding] = []
+    for key in LIFECYCLE_SCRIPTS:
+        value = scripts.get(key)
+        if isinstance(value, str):
+            findings += _lifecycle_findings(path, value, find_line(text, value))
+    return findings
+
+
 TARGETS = {
     (".claude", "settings.json"): (CHECK_H1, check_claude_settings),
     (".claude", "settings.local.json"): (CHECK_H1, check_claude_settings),
@@ -202,10 +255,17 @@ TARGETS = {
 }
 
 
+def target_for(path: Path) -> tuple[str, Callable[[Path, str], list[Finding]]] | None:
+    target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
+    if target is None and path.name.lower() == "package.json":
+        return CHECK_H3, check_package_json
+    return target
+
+
 def _symlink_findings(path: Path) -> list[Finding]:
     name = path.name.lower()
     by_dir = {parent: cid for (parent, _), (cid, _) in TARGETS.items()}
-    target = TARGETS.get((path.parent.name.lower(), name))
+    target = target_for(path)
     check_id = target[0] if target else by_dir.get(name)
     if check_id is None:
         return []
@@ -221,7 +281,7 @@ def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Fi
             findings += _symlink_findings(path)
             continue
         real = os.path.realpath(path)
-        target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
+        target = target_for(path)
         if target is None or real in seen:
             continue
         seen.add(real)
