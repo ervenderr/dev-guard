@@ -37,6 +37,7 @@ FOLDER_OPEN_RE = re.compile(r'"runOn"\s*:\s*"folderOpen"')
 PATTERN_NOT_IN_ALLOWLIST = "not_in_allowlist"
 PATTERN_MALFORMED_JSON = "malformed_json"
 PATTERN_RUN_ON_FOLDER_OPEN = "run_on_folder_open"
+PATTERN_SYMLINKED_CONFIG = "symlinked_config"
 PATTERN_OBFUSCATED = "obfuscated_command"
 PATTERN_OVERSIZE_FILE = "oversize_file"
 PATTERN_UNREADABLE_FILE = "unreadable_file"

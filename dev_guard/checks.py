@@ -19,6 +19,7 @@ from dev_guard.patterns import (
     PATTERN_NOT_IN_ALLOWLIST,
     PATTERN_OVERSIZE_FILE,
     PATTERN_RUN_ON_FOLDER_OPEN,
+    PATTERN_SYMLINKED_CONFIG,
     PATTERN_UNREADABLE_FILE,
     SEVERITY_HIGH,
     SEVERITY_LOW,
@@ -39,14 +40,14 @@ class Finding:
 
 def iter_files(root: Path) -> Iterator[Path]:
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        # symlinks are never followed, but are yielded so scan() can report config ones
+        yield from (Path(dirpath, d) for d in dirnames if os.path.islink(os.path.join(dirpath, d)))
         dirnames[:] = [
             d for d in dirnames
             if d not in SKIP_DIRS and not os.path.islink(os.path.join(dirpath, d))
         ]
         for name in filenames:
-            full = os.path.join(dirpath, name)
-            if not os.path.islink(full):
-                yield Path(full)
+            yield Path(dirpath, name)
 
 
 def read_text(path: Path) -> tuple[str | None, str | None]:
@@ -185,10 +186,23 @@ TARGETS = {
 }
 
 
+def _symlink_findings(path: Path) -> list[Finding]:
+    name = path.name.lower()
+    by_dir = {parent: cid for (parent, _), (cid, _) in TARGETS.items()}
+    target = TARGETS.get((path.parent.name.lower(), name))
+    check_id = target[0] if target else by_dir.get(name)
+    if check_id is None:
+        return []
+    return [Finding(check_id, SEVERITY_MED, str(path), 1, PATTERN_SYMLINKED_CONFIG)]
+
+
 def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Finding]:
     seen: set[str] = set()
     findings: list[Finding] = []
     for path in [*iter_files(Path(root)), *map(Path, extra_files)]:
+        if path.is_symlink():
+            findings += _symlink_findings(path)
+            continue
         real = os.path.realpath(path)
         target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
         if target is None or real in seen:

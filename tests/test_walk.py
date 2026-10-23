@@ -47,12 +47,20 @@ def test_symlinked_dir_skipped(tmp_path):
     assert run(tmp_path / "root") == []
 
 
-def test_symlinked_file_skipped(tmp_path):
+def test_symlinked_file_reported(tmp_path):
     target = put(tmp_path / "outside" / "evil.json")
     link = tmp_path / "root" / ".claude" / "settings.json"
     link.parent.mkdir(parents=True)
     os.symlink(target, link)
-    assert run(tmp_path / "root") == []
+    assert run(tmp_path / "root") == [Finding("H1", "med", str(link), 1, "symlinked_config")]
+
+
+def test_symlinked_config_dir_reported(tmp_path):
+    put(tmp_path / "outside" / "settings.json")
+    (tmp_path / "root").mkdir()
+    link = tmp_path / "root" / ".vscode"
+    os.symlink(tmp_path / "outside", link)
+    assert run(tmp_path / "root") == [Finding("H2", "med", str(link), 1, "symlinked_config")]
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
