@@ -24,6 +24,8 @@ H1_PATTERNS: dict[str, re.Pattern[str]] = {
 HOOK_ALLOWLIST: tuple[str, ...] = ("prettier", "npx prettier", "eslint", "npx eslint", "git")
 SHELL_CHAIN_RE = re.compile(r"[;&|`\n<>]|\$\(")
 
+FOLDER_OPEN_RE = re.compile(r'"runOn"\s*:\s*"folderOpen"')
+
 PATTERN_NOT_IN_ALLOWLIST = "not_in_allowlist"
 PATTERN_MALFORMED_JSON = "malformed_json"
 PATTERN_RUN_ON_FOLDER_OPEN = "run_on_folder_open"

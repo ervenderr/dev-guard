@@ -7,12 +7,15 @@ from pathlib import Path
 
 from dev_guard.patterns import (
     CHECK_H1,
+    CHECK_H2,
+    FOLDER_OPEN_RE,
     H1_PATTERNS,
     HOME_CONFIG_FILES,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
     PATTERN_MALFORMED_JSON,
     PATTERN_NOT_IN_ALLOWLIST,
+    PATTERN_RUN_ON_FOLDER_OPEN,
     SEVERITY_HIGH,
     SEVERITY_LOW,
     SEVERITY_MED,
@@ -51,18 +54,33 @@ def read_text(path: Path) -> str | None:
         return None
 
 
-def collect_commands(obj: object) -> list[str]:
+def iter_command_dicts(obj: object) -> Iterator[dict]:
     if isinstance(obj, dict):
-        out: list[str] = []
-        for key, value in obj.items():
-            if key == "command" and isinstance(value, str):
-                out.append(value)
-            else:
-                out.extend(collect_commands(value))
-        return out
-    if isinstance(obj, list):
-        return [c for item in obj for c in collect_commands(item)]
-    return []
+        if "command" in obj or "args" in obj:
+            yield obj
+        for value in obj.values():
+            yield from iter_command_dicts(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from iter_command_dicts(item)
+
+
+def collect_commands(obj: object) -> list[str]:
+    return [d["command"] for d in iter_command_dicts(obj) if isinstance(d.get("command"), str)]
+
+
+def _text_of(item: object) -> str | None:
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict) and isinstance(item.get("value"), str):
+        return item["value"]
+    return None
+
+
+def command_parts(d: dict) -> list[str]:
+    args = d.get("args")
+    items = [d.get("command"), *(args if isinstance(args, list) else [])]
+    return [t for t in map(_text_of, items) if t is not None]
 
 
 def find_line(text: str, needle: str) -> int:
@@ -101,7 +119,61 @@ def check_claude_settings(path: Path, text: str) -> list[Finding]:
     return findings
 
 
-TARGETS = {(".claude", "settings.json"): check_claude_settings}
+def _h2_high(path: Path, text: str, d: dict) -> list[Finding]:
+    parts = command_parts(d)
+    joined = " ".join(parts)
+    out: list[Finding] = []
+    for name, rx in H1_PATTERNS.items():
+        if not rx.search(joined):
+            continue
+        part = next((p for p in parts if rx.search(p)), parts[0] if parts else None)
+        line = find_line(text, part) if part is not None else 1
+        out.append(Finding(CHECK_H2, SEVERITY_HIGH, str(path), line, name))
+    return out
+
+
+def _is_folder_open(task: object) -> bool:
+    opts = task.get("runOptions") if isinstance(task, dict) else None
+    return isinstance(opts, dict) and opts.get("runOn") == "folderOpen"
+
+
+def _raw_scan(path: Path, text: str) -> list[Finding]:
+    # VS Code parses JSONC leniently, so a file our strict parse rejects may still run.
+    out: list[Finding] = []
+    for n, line in enumerate(text.splitlines(), 1):
+        out += [Finding(CHECK_H2, SEVERITY_HIGH, str(path), n, name)
+                for name, rx in H1_PATTERNS.items() if rx.search(line)]
+        if FOLDER_OPEN_RE.search(line):
+            out.append(Finding(CHECK_H2, SEVERITY_MED, str(path), n, PATTERN_RUN_ON_FOLDER_OPEN))
+    return out
+
+
+def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
+    try:
+        data = json.loads(text)
+        tasks = data.get("tasks") if isinstance(data, dict) else None
+        # list() inside the try: the generator raises RecursionError lazily
+        groups = [(t, list(iter_command_dicts(t))) for t in tasks] if isinstance(tasks, list) else []
+    except (json.JSONDecodeError, RecursionError, ValueError) as err:
+        line = err.lineno if isinstance(err, json.JSONDecodeError) else 1
+        return [Finding(CHECK_H2, SEVERITY_LOW, str(path), line, PATTERN_MALFORMED_JSON),
+                *_raw_scan(path, text)]
+    findings: list[Finding] = []
+    for task, dicts in groups:
+        # HOOK-04: an H1 pattern is high with or without folderOpen (task can be run by hand)
+        for d in dicts:
+            findings += _h2_high(path, text, d)
+        if _is_folder_open(task):
+            parts = command_parts(dicts[0]) if dicts else []
+            line = find_line(text, parts[0]) if parts else 1
+            findings.append(Finding(CHECK_H2, SEVERITY_MED, str(path), line, PATTERN_RUN_ON_FOLDER_OPEN))
+    return findings
+
+
+TARGETS = {
+    (".claude", "settings.json"): check_claude_settings,
+    (".vscode", "tasks.json"): check_vscode_tasks,
+}
 
 
 def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Finding]:
