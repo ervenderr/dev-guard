@@ -7,7 +7,7 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
 ## Phases
 
 - [x] **Phase 1: Finding Model, Safe Walking & Hook Checks** - Finding model, safe file walk, H1/H2 with tests (completed 2026-10-23)
-- [ ] **Phase 2: Package, CI & IOC Checks** - H3, H4, H5 with tests for all five checks
+- [x] **Phase 2: Package, CI & IOC Checks** - H3, H4, H5 with tests for all five checks (completed 2026-10-23)
 - [ ] **Phase 3: CLI Output & Exit Codes** - Default scan, table/JSON output, exit code, performance
 - [ ] **Phase 4: n8n Alerting & README** - Cron to n8n webhook to Telegram/email, docs
 
@@ -40,12 +40,12 @@ Plans:
   2. A workflow referencing `ACTIONS_ID_TOKEN_*` or `/proc/*/mem` yields a finding, and a third-party action not pinned to a SHA yields a finding
   3. A lockfile or `requirements*.txt` entry listed in `iocs.json` yields a high finding
   4. Every check H1-H5 has a passing test on a clean fixture and a failing-detection test on a malicious fixture
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 02-01-PLAN.md — H3 package.json lifecycle scripts + target_for dispatch
-- [ ] 02-02-PLAN.md — H4 workflow OIDC token, /proc/*/mem, unpinned actions, run-step H1 patterns
-- [ ] 02-03-PLAN.md — H5 iocs.json lockfile matching + TEST-01 fixture matrix
+- [x] 02-02-PLAN.md — H4 workflow OIDC token, /proc/*/mem, unpinned actions, run-step H1 patterns
+- [x] 02-03-PLAN.md — H5 iocs.json lockfile matching + TEST-01 fixture matrix
 
 ### Phase 3: CLI Output & Exit Codes
 **Goal**: User runs `dev-guard` and gets readable results and a usable exit code
@@ -77,6 +77,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
-| 2. Package, CI & IOC Checks | 1/3 | In Progress|  |
+| 2. Package, CI & IOC Checks | 3/3 | Complete   | 2026-10-23 |
 | 3. CLI Output & Exit Codes | 0/0 | Not started | - |
 | 4. n8n Alerting & README | 0/0 | Not started | - |
