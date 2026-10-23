@@ -6,7 +6,7 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
 
 ## Phases
 
-- [ ] **Phase 1: Finding Model, Safe Walking & Hook Checks** - Finding model, safe file walk, H1/H2 with tests
+- [x] **Phase 1: Finding Model, Safe Walking & Hook Checks** - Finding model, safe file walk, H1/H2 with tests (completed 2026-10-23)
 - [ ] **Phase 2: Package, CI & IOC Checks** - H3, H4, H5 with tests for all five checks
 - [ ] **Phase 3: CLI Output & Exit Codes** - Default scan, table/JSON output, exit code, performance
 - [ ] **Phase 4: n8n Alerting & README** - Cron to n8n webhook to Telegram/email, docs
@@ -24,11 +24,11 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
   3. A `.vscode/tasks.json` with `runOn: folderOpen` or a H1-pattern command yields a finding
   4. Malformed JSON yields a low finding instead of a crash, and files over 1 MB, `node_modules`, and `.git` are skipped
   5. No finding output contains secret values, only file:line and pattern name
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Walking skeleton: venv/pytest, Finding model, safe walker, H1 high detection end-to-end
-- [ ] 01-02-PLAN.md — H1 allowlist + malformed JSON, H2 .vscode/tasks.json check
+- [x] 01-01-PLAN.md — Walking skeleton: venv/pytest, Finding model, safe walker, H1 high detection end-to-end
+- [x] 01-02-PLAN.md — H1 allowlist + malformed JSON, H2 .vscode/tasks.json check
 
 ### Phase 2: Package, CI & IOC Checks
 **Goal**: Install scripts, workflow steps, and known-bad lockfile entries are detected
@@ -71,7 +71,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Finding Model, Safe Walking & Hook Checks | 0/0 | Not started | - |
+| 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
 | 2. Package, CI & IOC Checks | 0/0 | Not started | - |
 | 3. CLI Output & Exit Codes | 0/0 | Not started | - |
 | 4. n8n Alerting & README | 0/0 | Not started | - |

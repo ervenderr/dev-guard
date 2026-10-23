@@ -3,17 +3,17 @@
 ## v1 Requirements
 
 ### Core Model & Safety
-- [ ] **CORE-01**: Every check returns `list[Finding]` with severity (high/med/low), check ID, file, line, matched pattern
+- [x] **CORE-01**: Every check returns `list[Finding]` with severity (high/med/low), check ID, file, line, matched pattern
 - [ ] **CORE-02**: Scanner never prints secret values; output shows only file:line and matched pattern name
 - [ ] **CORE-03**: Scanner only parses file text and never executes scanned content
 - [ ] **CORE-04**: Directory walk skips `node_modules` and `.git` and skips files over 1 MB
-- [ ] **CORE-05**: Malformed JSON is reported as a low finding instead of crashing the scan
+- [x] **CORE-05**: Malformed JSON is reported as a low finding instead of crashing the scan
 
 ### Hook Checks
 - [ ] **HOOK-01**: User sees a high finding for `.claude/settings.json` (project and `~/.claude`) hooks that run `curl`/`wget`/`nc`, `base64 -d`, `eval`, or remote `sh -c`
-- [ ] **HOOK-02**: User sees a finding for `.claude/settings.json` hook commands not in the allowlist in `patterns.py`
-- [ ] **HOOK-03**: User sees a finding for `.vscode/tasks.json` tasks with `runOn: folderOpen`
-- [ ] **HOOK-04**: User sees a finding for `.vscode/tasks.json` task commands matching the H1 patterns
+- [x] **HOOK-02**: User sees a finding for `.claude/settings.json` hook commands not in the allowlist in `patterns.py`
+- [x] **HOOK-03**: User sees a finding for `.vscode/tasks.json` tasks with `runOn: folderOpen`
+- [x] **HOOK-04**: User sees a finding for `.vscode/tasks.json` task commands matching the H1 patterns
 
 ### Package & CI Checks
 - [ ] **PKG-01**: User sees a finding for `package.json` `preinstall`/`install`/`postinstall` scripts matching H1 patterns
@@ -58,15 +58,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Pending |
+| CORE-01 | Phase 1 | Complete |
 | CORE-02 | Phase 1 | Pending |
 | CORE-03 | Phase 1 | Pending |
 | CORE-04 | Phase 1 | Pending |
-| CORE-05 | Phase 1 | Pending |
+| CORE-05 | Phase 1 | Complete |
 | HOOK-01 | Phase 1 | Pending |
-| HOOK-02 | Phase 1 | Pending |
-| HOOK-03 | Phase 1 | Pending |
-| HOOK-04 | Phase 1 | Pending |
+| HOOK-02 | Phase 1 | Complete |
+| HOOK-03 | Phase 1 | Complete |
+| HOOK-04 | Phase 1 | Complete |
 | PKG-01 | Phase 2 | Pending |
 | CI-01 | Phase 2 | Pending |
 | CI-02 | Phase 2 | Pending |
