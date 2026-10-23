@@ -40,7 +40,12 @@ Plans:
   2. A workflow referencing `ACTIONS_ID_TOKEN_*` or `/proc/*/mem` yields a finding, and a third-party action not pinned to a SHA yields a finding
   3. A lockfile or `requirements*.txt` entry listed in `iocs.json` yields a high finding
   4. Every check H1-H5 has a passing test on a clean fixture and a failing-detection test on a malicious fixture
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — H3 package.json lifecycle scripts + target_for dispatch
+- [ ] 02-02-PLAN.md — H4 workflow OIDC token, /proc/*/mem, unpinned actions, run-step H1 patterns
+- [ ] 02-03-PLAN.md — H5 iocs.json lockfile matching + TEST-01 fixture matrix
 
 ### Phase 3: CLI Output & Exit Codes
 **Goal**: User runs `dev-guard` and gets readable results and a usable exit code
@@ -72,6 +77,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
-| 2. Package, CI & IOC Checks | 0/0 | Not started | - |
+| 2. Package, CI & IOC Checks | 0/3 | Not started | - |
 | 3. CLI Output & Exit Codes | 0/0 | Not started | - |
 | 4. n8n Alerting & README | 0/0 | Not started | - |
