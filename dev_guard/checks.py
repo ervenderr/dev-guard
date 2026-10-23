@@ -15,7 +15,9 @@ from dev_guard.patterns import (
     MAX_FILE_BYTES,
     PATTERN_MALFORMED_JSON,
     PATTERN_NOT_IN_ALLOWLIST,
+    PATTERN_OVERSIZE_FILE,
     PATTERN_RUN_ON_FOLDER_OPEN,
+    PATTERN_UNREADABLE_FILE,
     SEVERITY_HIGH,
     SEVERITY_LOW,
     SEVERITY_MED,
@@ -45,13 +47,16 @@ def iter_files(root: Path) -> Iterator[Path]:
                 yield Path(full)
 
 
-def read_text(path: Path) -> str | None:
+def read_text(path: Path) -> tuple[str | None, str | None]:
+    """Return (text, problem_pattern). Both None means the file does not exist."""
     try:
-        if not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
-            return None
-        return path.read_text(encoding="utf-8", errors="replace")
-    except (OSError, UnicodeDecodeError):
-        return None
+        if not path.is_file():
+            return None, None
+        if path.stat().st_size > MAX_FILE_BYTES:
+            return None, PATTERN_OVERSIZE_FILE
+        return path.read_text(encoding="utf-8", errors="replace"), None
+    except OSError:
+        return None, PATTERN_UNREADABLE_FILE
 
 
 def iter_command_dicts(obj: object) -> Iterator[dict]:
@@ -171,8 +176,8 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
 
 
 TARGETS = {
-    (".claude", "settings.json"): check_claude_settings,
-    (".vscode", "tasks.json"): check_vscode_tasks,
+    (".claude", "settings.json"): (CHECK_H1, check_claude_settings),
+    (".vscode", "tasks.json"): (CHECK_H2, check_vscode_tasks),
 }
 
 
@@ -181,11 +186,14 @@ def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Fi
     findings: list[Finding] = []
     for path in [*iter_files(Path(root)), *map(Path, extra_files)]:
         real = os.path.realpath(path)
-        check = TARGETS.get((path.parent.name, path.name))
-        if check is None or real in seen:
+        target = TARGETS.get((path.parent.name, path.name))
+        if target is None or real in seen:
             continue
         seen.add(real)
-        text = read_text(path)
-        if text is not None:
+        check_id, check = target
+        text, problem = read_text(path)
+        if problem is not None:
+            findings.append(Finding(check_id, SEVERITY_LOW, str(path), 1, problem))
+        elif text is not None:
             findings.extend(check(path, text))
     return sorted(findings, key=lambda f: (f.file, f.line, f.check_id, f.pattern))

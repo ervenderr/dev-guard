@@ -29,6 +29,8 @@ FOLDER_OPEN_RE = re.compile(r'"runOn"\s*:\s*"folderOpen"')
 PATTERN_NOT_IN_ALLOWLIST = "not_in_allowlist"
 PATTERN_MALFORMED_JSON = "malformed_json"
 PATTERN_RUN_ON_FOLDER_OPEN = "run_on_folder_open"
+PATTERN_OVERSIZE_FILE = "oversize_file"
+PATTERN_UNREADABLE_FILE = "unreadable_file"
 
 SKIP_DIRS: frozenset[str] = frozenset({"node_modules", ".git"})
 MAX_FILE_BYTES: int = 1024 * 1024

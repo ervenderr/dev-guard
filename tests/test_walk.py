@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from dev_guard.checks import scan
+from dev_guard.checks import Finding, scan
 from dev_guard.patterns import MAX_FILE_BYTES
 
 MAL = (Path(__file__).parent / "fixtures" / "h1" / "malicious" / ".claude" / "settings.json").read_text()
@@ -34,10 +34,10 @@ def test_git_skipped(tmp_path):
     assert run(tmp_path) == []
 
 
-def test_oversize_skipped(tmp_path):
+def test_oversize_reported(tmp_path):
     p = put(tmp_path / "root" / ".claude" / "settings.json", MAL + " " * MAX_FILE_BYTES)
     assert p.stat().st_size > MAX_FILE_BYTES
-    assert run(tmp_path / "root") == []
+    assert run(tmp_path / "root") == [Finding("H1", "low", str(p), 1, "oversize_file")]
 
 
 def test_symlinked_dir_skipped(tmp_path):
@@ -56,11 +56,11 @@ def test_symlinked_file_skipped(tmp_path):
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
-def test_unreadable_skipped(tmp_path):
+def test_unreadable_reported(tmp_path):
     p = put(tmp_path / "root" / ".claude" / "settings.json")
     p.chmod(0o000)
     try:
-        assert run(tmp_path / "root") == []
+        assert run(tmp_path / "root") == [Finding("H1", "low", str(p), 1, "unreadable_file")]
     finally:
         p.chmod(0o644)
 
