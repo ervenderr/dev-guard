@@ -9,7 +9,7 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
 - [x] **Phase 1: Finding Model, Safe Walking & Hook Checks** - Finding model, safe file walk, H1/H2 with tests (completed 2026-10-23)
 - [x] **Phase 2: Package, CI & IOC Checks** - H3, H4, H5 with tests for all five checks (completed 2026-10-23)
 - [x] **Phase 3: CLI Output & Exit Codes** - Default scan, table/JSON output, exit code, performance (completed 2026-10-23)
-- [ ] **Phase 4: n8n Alerting & README** - Cron to n8n webhook to Telegram/email, docs
+- [x] **Phase 4: n8n Alerting & README** - Cron to n8n webhook to Telegram/email, docs (completed 2026-10-23)
 
 ## Phase Details
 
@@ -74,12 +74,12 @@ Plans:
   2. Findings (never file contents) are POSTed to an n8n webhook
   3. A Telegram/email notification arrives only for new high findings, not repeats
   4. README documents install, usage, and the n8n webhook flow
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 04-01-PLAN.md — Repeatable --exclude flag, test-first
 - [x] 04-02-PLAN.md — scripts/run-alert.sh + stub-receiver tests, n8n/dev-guard-alert.json + structure/dedupe tests
-- [ ] 04-03-PLAN.md — README (install, usage, exit codes, DEV_GUARD_IOCS, n8n flow, sample crontab) + consistency tests
+- [x] 04-03-PLAN.md — README (install, usage, exit codes, DEV_GUARD_IOCS, n8n flow, sample crontab) + consistency tests
 
 ## Progress
 
@@ -88,4 +88,4 @@ Plans:
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
 | 2. Package, CI & IOC Checks | 3/3 | Complete   | 2026-10-23 |
 | 3. CLI Output & Exit Codes | 2/2 | Complete   | 2026-10-23 |
-| 4. n8n Alerting & README | 2/3 | In Progress|  |
+| 4. n8n Alerting & README | 3/3 | Complete   | 2026-10-23 |
