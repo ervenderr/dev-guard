@@ -208,3 +208,12 @@ def test_more_lockfile_names(tmp_path, sub, name):
     text = lock_v3({f"node_modules/{BAD}": {"version": "0.0.1"}}) if name.endswith(".json") else f"{BAD}==0.0.1\n"
     (d / name).write_text(text)
     assert any(f.pattern == "ioc_match" for f in scan(tmp_path, extra_files=()))
+
+
+def test_iocs_ship_inside_package():
+    import dev_guard
+    from dev_guard.patterns import IOCS_PATH
+
+    assert IOCS_PATH == Path(dev_guard.__file__).resolve().parent / "iocs.json"
+    assert IOCS_PATH.is_file()
+    assert 'package-data' in (Path(__file__).parent.parent / "pyproject.toml").read_text()

@@ -14,6 +14,9 @@ dev-guard = "dev_guard.cli:main"
 [tool.setuptools]
 packages = ["dev_guard"]
 
+[tool.setuptools.package-data]
+dev_guard = ["iocs.json"]
+
 [tool.setuptools.dynamic]
 version = {attr = "dev_guard.__version__"}
 

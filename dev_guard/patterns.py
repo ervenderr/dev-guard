@@ -87,7 +87,7 @@ PATTERN_UNPINNED_ACTION = "unpinned_action"
 
 CHECK_H5 = "H5"
 IOCS_ENV = "DEV_GUARD_IOCS"  # overrides IOCS_PATH when scan() gets no iocs_path
-IOCS_PATH = Path(__file__).resolve().parent.parent / "iocs.json"  # repo root; revisit for packaging
+IOCS_PATH = Path(__file__).resolve().parent / "iocs.json"
 NPM_LOCK_NAMES: tuple[str, ...] = ("package-lock.json", "npm-shrinkwrap.json")
 PNPM_LOCK_NAME = "pnpm-lock.yaml"
 REQUIREMENTS_MARKER = "requirements"  # in the file name or the parent dir name
