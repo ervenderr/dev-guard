@@ -76,8 +76,8 @@ OIDC_TOKEN_RE = re.compile(r"ACTIONS_ID_TOKEN_\w+")
 # shortcut: nested $(...) inside the substitution is not matched, upgrade if seen in the wild
 PROC_MEM_RE = re.compile(r"/proc/(?:[^/\s()]+|\$\([^()\n]*\))/mem\b")
 USES_RE = re.compile(r"""^\s*(?:-\s+)?uses\s*:\s*["']?(?P<ref>[^\s"'#]+)""")
-RUN_KEY_RE = re.compile(r"^(?P<lead>\s*(?:-\s+)?)run\s*:(?P<value>.*)$")
-BLOCK_SCALAR_RE = re.compile(r"^[|>][+\-0-9]*\s*(#.*)?$")
+# lead is the line start (block mapping) or a flow-mapping { or , (no continuation tracking)
+RUN_KEY_RE = re.compile(r"""(?P<lead>^\s*(?:-\s+)?|[{,]\s*)["']?run["']?\s*:(?P<value>.*)$""")
 SHA_RE = re.compile(r"[0-9a-fA-F]{40}")
 
 PATTERN_ACTIONS_ID_TOKEN = "actions_id_token"

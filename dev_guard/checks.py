@@ -20,7 +20,6 @@ from dev_guard.patterns import (
     LIFECYCLE_ALLOWLIST,
     LIFECYCLE_SCRIPTS,
     LIFECYCLE_VALUE_RE,
-    BLOCK_SCALAR_RE,
     LOCAL_ACTION_PREFIXES,
     OIDC_TOKEN_RE,
     PATTERN_ACTIONS_ID_TOKEN,
@@ -280,7 +279,7 @@ def _indent(line: str) -> int:
     return len(line) - len(line.lstrip())
 
 
-# shortcut: line-based text scan, no YAML parser; flow mappings/anchors can hide uses:/run:, upgrade if seen in the wild
+# shortcut: line-based text scan, no YAML parser; anchors and multi-line flow mappings can hide uses:/run:, upgrade if seen in the wild
 def check_workflow(path: Path, text: str) -> list[Finding]:
     out: list[Finding] = []
     run_indent: int | None = None
@@ -297,13 +296,11 @@ def check_workflow(path: Path, text: str) -> list[Finding]:
                 out += h1_findings(CHECK_H4, path, line, n)
                 continue
             run_indent = None
-        run = RUN_KEY_RE.match(line)
+        run = RUN_KEY_RE.search(line)
         if run:
-            value = run["value"].strip()
-            if BLOCK_SCALAR_RE.match(value):
-                run_indent = len(run["lead"])
-            else:
-                out += h1_findings(CHECK_H4, path, value, n)
+            out += h1_findings(CHECK_H4, path, run["value"], n)
+            # deeper lines are block-scalar or multi-line plain/quoted continuation
+            run_indent = len(run["lead"]) if run.start() == 0 else None
         uses = USES_RE.match(line)
         if uses and not uses["ref"].startswith(LOCAL_ACTION_PREFIXES):
             ref = uses["ref"].rpartition("@")

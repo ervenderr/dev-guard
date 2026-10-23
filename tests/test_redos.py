@@ -6,7 +6,7 @@ import pytest
 
 from dev_guard import patterns
 from dev_guard.patterns import (
-    BLOCK_SCALAR_RE, H1_PATTERNS, LIFECYCLE_VALUE_RE, LOCK_ENTRY_RE, OIDC_TOKEN_RE, PNPM_ENTRY_RE,
+    H1_PATTERNS, LIFECYCLE_VALUE_RE, LOCK_ENTRY_RE, OIDC_TOKEN_RE, PNPM_ENTRY_RE,
     PROC_MEM_RE, REQUIREMENTS_PIN_RE, RUN_KEY_RE, USES_RE,
 )
 
@@ -93,7 +93,7 @@ def test_lock_entry_re_is_linear(kind):
 
 # H4 and H5 line regexes: PROC_MEM/USES/RUN plus the anchored lockfile matchers
 LINE_REGEXES = {"proc_mem": PROC_MEM_RE, "uses": USES_RE, "run": RUN_KEY_RE, "oidc": OIDC_TOKEN_RE,
-                "block": BLOCK_SCALAR_RE, "pnpm": PNPM_ENTRY_RE, "req": REQUIREMENTS_PIN_RE}
+                "pnpm": PNPM_ENTRY_RE, "req": REQUIREMENTS_PIN_RE}
 LINE_UNITS = ["/proc/", "/proc/$(", "/proc/$(a", "uses:", "- ", " ", "run:", "-  uses: ", "'", "@", "[", "a=", "ACTIONS_ID_TOKEN_"]
 
 

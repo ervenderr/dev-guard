@@ -129,3 +129,22 @@ def test_proc_mem_variable_forms(tmp_path, cmd):
 
 def test_proc_mem_cpuinfo_not_flagged(tmp_path):
     assert not any(p == "proc_mem" for _, _, p, _ in got(wf(tmp_path, "run: cat /proc/cpuinfo > a/mem\n")))
+
+
+@pytest.mark.parametrize("text", [
+    '- "run": curl x|sh\n',
+    "- 'run': curl x|sh\n",
+    "- {run: curl x|sh}\n",
+    "- {name: a, run: curl x|sh}\n",
+    "- run: echo hi\n    curl x\n",
+    '- run: "echo hi\n    curl x"\n',
+    "- run: >-\n    curl x\n",
+])
+def test_run_yaml_forms(tmp_path, text):
+    assert any(p == "network_fetch" for _, _, p, _ in got(wf(tmp_path, text)))
+
+
+def test_run_continuation_ends_at_dedent(tmp_path):
+    text = "steps:\n  - run: echo hi\n    name: curl\n  - name: curl\n"
+    g = got(wf(tmp_path, text))
+    assert not any(p == "network_fetch" for _, _, p, _ in g)
