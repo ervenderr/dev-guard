@@ -134,3 +134,83 @@ def test_broken_pipe():
     proc.stderr.close()
     assert proc.wait() == 1
     assert "Traceback" not in err and "BrokenPipeError" not in err
+
+
+def _json_run(capsys, argv):
+    code = main(argv)
+    return code, json.loads(capsys.readouterr().out)
+
+
+def test_json_malicious(capsys):
+    code, d = _json_run(capsys, ["--json", _dirs("malicious")[0]])
+    assert code == 1 and set(d) == {"findings", "summary"}
+    assert d["findings"]
+    for f in d["findings"]:
+        assert set(f) == {"check_id", "severity", "file", "line", "pattern"}
+    for sev in ("high", "med", "low"):
+        assert d["summary"][sev] == sum(f["severity"] == sev for f in d["findings"])
+
+
+def test_json_clean(capsys):
+    code = main(["--json", *_dirs("clean")])
+    assert code == 0
+    assert capsys.readouterr().out == (
+        '{"findings": [], "summary": {"high": 0, "med": 0, "low": 0}}\n'
+    )
+
+
+def test_json_hostile_filename(tmp_path, capsys):
+    d = tmp_path / 'evil"\\\n\x1b[2Jé'
+    try:
+        d.mkdir()
+    except OSError:
+        pytest.skip("filesystem rejects name")
+    shutil.copy(FIXTURES / "h3" / "malicious" / "package.json", d / "package.json")
+    code, data = _json_run(capsys, ["--json", str(tmp_path)])
+    assert code == 1
+    assert str(d / "package.json") in [f["file"] for f in data["findings"]]
+    main([str(tmp_path)])
+    assert "\x1b" not in capsys.readouterr().out
+
+
+def test_version(capsys):
+    with pytest.raises(SystemExit) as e:
+        main(["--version"])
+    assert e.value.code == 0
+    assert capsys.readouterr().out == "dev-guard 0.1.0\n"
+
+
+def _home_cfg(tmp_path):
+    cfg = tmp_path / ".claude" / "settings.json"
+    cfg.parent.mkdir()
+    shutil.copy(FIXTURES / "h1" / "malicious" / ".claude" / "settings.json", cfg)
+    return cfg
+
+
+def test_default_roots_and_home_config(tmp_path, monkeypatch, capsys):
+    cfg = _home_cfg(tmp_path)
+    monkeypatch.setattr(cli, "DEFAULT_SCAN_ROOTS", (FIXTURES / "h3" / "malicious",))
+    monkeypatch.setattr(cli, "HOME_CONFIG_FILES", (cfg,))
+    code, d = _json_run(capsys, ["--json"])
+    assert code == 1
+    assert any(f["check_id"] == "H1" and f["severity"] == "high" and f["file"] == str(cfg) for f in d["findings"])
+    assert any(f["check_id"] == "H3" for f in d["findings"])
+
+
+def test_explicit_path_ignores_home_config(tmp_path, monkeypatch, capsys):
+    cfg = _home_cfg(tmp_path)
+    monkeypatch.setattr(cli, "HOME_CONFIG_FILES", (cfg,))
+    _, d = _json_run(capsys, ["--json", _dirs("malicious")[2]])
+    assert all(f["file"] != str(cfg) for f in d["findings"])
+
+
+def test_default_root_missing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DEFAULT_SCAN_ROOTS", (tmp_path / "nope",))
+    assert main([]) == 2
+    assert "nope" in capsys.readouterr().err
+
+
+def test_unknown_flag():
+    with pytest.raises(SystemExit) as e:
+        main(["--fix"])
+    assert e.value.code == 2
