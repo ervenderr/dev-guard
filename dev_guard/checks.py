@@ -102,8 +102,11 @@ def command_parts(d: dict) -> list[str]:
 
 def find_line(text: str, needle: str) -> int:
     # json.loads drops line info, so search the raw text for the escaped string.
-    for candidate in (json.dumps(needle)[1:-1], json.dumps(needle, ensure_ascii=False)[1:-1]):
-        for i, line in enumerate(text.splitlines(), 1):
+    escaped = json.dumps(needle)[1:-1]
+    # json.loads counts only \n as a line break; str.splitlines() also splits on \x0c, \x85, U+2028...
+    lines = text.split("\n")
+    for candidate in (escaped, json.dumps(needle, ensure_ascii=False)[1:-1], escaped.replace("/", "\\/")):
+        for i, line in enumerate(lines, 1):
             if candidate in line:
                 return i
     return 1
@@ -162,7 +165,7 @@ def _is_folder_open(task: object) -> bool:
 def _raw_scan(check_id: str, path: Path, text: str) -> list[Finding]:
     # VS Code parses JSONC leniently, so a file our strict parse rejects may still run.
     out: list[Finding] = []
-    for n, line in enumerate(text.splitlines(), 1):
+    for n, line in enumerate(text.split("\n"), 1):
         out += [Finding(check_id, SEVERITY_HIGH, str(path), n, name)
                 for name, rx in H1_PATTERNS.items() if rx.search(line)]
         if FOLDER_OPEN_RE.search(line):
