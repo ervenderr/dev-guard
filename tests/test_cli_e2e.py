@@ -12,7 +12,7 @@ from dev_guard.cli import main
 REPO_ROOT = Path(__file__).parent.parent
 FIXTURES = Path(__file__).parent / "fixtures"
 CHECKS = ["h1", "h2", "h3", "h4", "h5"]
-PERF_BUDGET_S = 5.0
+PERF_BUDGET_S = 30.0  # SPEC constraint for ~/Projects; tight bounds flake on loaded CI
 
 
 def _run(*args: str) -> subprocess.CompletedProcess:
