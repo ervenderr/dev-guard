@@ -99,7 +99,7 @@ Treat `len(data) > MAX_FILE_BYTES` as oversize (see CR-01).
 ### WR-05: Line numbers are inconsistent with JSON error positions
 
 **File:** `dev_guard/checks.py:86-92, 143`
-**Issue:** `str.splitlines()` also splits on `\x0b`, `\x0c`, `\x1c-\x1e`, `\x85` and ` /9`. `err.lineno` counts only `\n`, so the two disagree. `find_line` returns the first line containing the needle, which may be an unrelated earlier key. It also falls back to 1 when the file escapes `/` as `\/`.
+**Issue:** `str.splitlines()` also splits on `\x0b`, `\x0c`, `\x1c-\x1e`, `\x85` and `U+2028 and U+2029/9`. `err.lineno` counts only `\n`, so the two disagree. `find_line` returns the first line containing the needle, which may be an unrelated earlier key. It also falls back to 1 when the file escapes `/` as `\/`.
 **Fix:** Use `text.split("\n")` throughout. Search for the needle together with its `"command"` key context, or try the `\/`-escaped variant too.
 
 ### WR-06: `read_text` swallows errors and dead-catches `UnicodeDecodeError`
