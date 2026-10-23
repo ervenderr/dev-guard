@@ -74,7 +74,12 @@ Plans:
   2. Findings (never file contents) are POSTed to an n8n webhook
   3. A Telegram/email notification arrives only for new high findings, not repeats
   4. README documents install, usage, and the n8n webhook flow
-**Plans**: TBD
+**Plans:** 0/3 plans complete
+
+Plans:
+- [ ] 04-01-PLAN.md — Repeatable --exclude flag, test-first
+- [ ] 04-02-PLAN.md — scripts/run-alert.sh + stub-receiver tests, n8n/dev-guard-alert.json + structure/dedupe tests
+- [ ] 04-03-PLAN.md — README (install, usage, exit codes, DEV_GUARD_IOCS, n8n flow, sample crontab) + consistency tests
 
 ## Progress
 
@@ -83,4 +88,4 @@ Plans:
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
 | 2. Package, CI & IOC Checks | 3/3 | Complete   | 2026-10-23 |
 | 3. CLI Output & Exit Codes | 2/2 | Complete   | 2026-10-23 |
-| 4. n8n Alerting & README | 0/0 | Not started | - |
+| 4. n8n Alerting & README | 0/3 | Planned | - |
