@@ -1,0 +1,15 @@
+lockfileVersion: '6.0'
+
+packages:
+
+  '@dev-guard-ioc/placeholder@0.0.1':
+    resolution: {integrity: sha512-fake}
+
+  /dev-guard-ioc-placeholder@0.0.1(react@18.0.0):
+    resolution: {integrity: sha512-fake}
+
+  /dev-guard-ioc-placeholder@0.0.1_react@18.0.0:
+    resolution: {integrity: sha512-fake}
+
+  /left-pad@1.3.0:
+    resolution: {integrity: sha512-fake}

@@ -1,0 +1,10 @@
+{
+  "_comment": "Hand-updated IOC list. The placeholder entries below are fake and only exercise tests; replace/extend with real name@version pairs.",
+  "npm": [
+    "dev-guard-ioc-placeholder@0.0.1",
+    "@dev-guard-ioc/placeholder@0.0.1"
+  ],
+  "pypi": [
+    "dev-guard-ioc-placeholder==0.0.1"
+  ]
+}

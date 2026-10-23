@@ -1,0 +1,2 @@
+# fake IOC, normalized name match
+Dev_Guard.IOC-Placeholder[extra] == 0.0.1 ; python_version>"3"

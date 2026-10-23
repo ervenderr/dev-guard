@@ -1,0 +1,3 @@
+# benign pins
+dev-guard-ioc-placeholder==0.0.2
+requests==2.31.0
