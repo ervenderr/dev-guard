@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write ."
+          },
+          {
+            "type": "command",
+            "command": "git status"
+          }
+        ]
+      }
+    ]
+  }
+}
