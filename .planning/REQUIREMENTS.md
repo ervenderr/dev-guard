@@ -34,7 +34,7 @@
 - [ ] **DOC-01**: README documents install, usage, and the n8n webhook flow
 
 ### n8n Alerting (Phase 2)
-- [ ] **ALERT-01**: A cron entry runs `dev-guard --json` on a schedule
+- [x] **ALERT-01**: A cron entry runs `dev-guard --json` on a schedule
 - [ ] **ALERT-02**: Findings are POSTed to an n8n webhook (findings only, never file contents)
 - [ ] **ALERT-03**: n8n notifies via Telegram/email only on new high findings
 
@@ -78,7 +78,7 @@
 | CLI-04 | Phase 3 | Complete |
 | CLI-05 | Phase 3 | Complete |
 | TEST-02 | Phase 3 | Complete |
-| ALERT-01 | Phase 4 | Pending |
+| ALERT-01 | Phase 4 | Complete |
 | ALERT-02 | Phase 4 | Pending |
 | ALERT-03 | Phase 4 | Pending |
 | DOC-01 | Phase 4 | Pending |
