@@ -41,7 +41,7 @@ Module internals of cli.py; how the default roots are expressed as constants.
 <code_context>
 ## Existing Code Insights
 
-scan(roots, extra_files, iocs_path) in dev_guard/checks.py returns list[Finding]; Finding is a frozen dataclass (check_id, severity, file, line, pattern). 465 pytest tests; .venv python3.12. iocs.json at repo root, overridable via DEV_GUARD_IOCS env or scan(iocs_path=...). pyproject.toml exists from Phase 1.
+scan(root, extra_files, iocs_path) (single root; CLI must call per root and dedupe; HOME_CONFIG_FILES is the default extra_files) in dev_guard/checks.py returns list[Finding]; Finding is a frozen dataclass (check_id, severity, file, line, pattern). 465 pytest tests; .venv python3.12. iocs.json at repo root, overridable via DEV_GUARD_IOCS env or scan(iocs_path=...). pyproject.toml exists from Phase 1.
 
 </code_context>
 
