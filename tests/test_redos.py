@@ -5,7 +5,10 @@ import time
 import pytest
 
 from dev_guard import patterns
-from dev_guard.patterns import H1_PATTERNS, LIFECYCLE_VALUE_RE
+from dev_guard.patterns import (
+    BLOCK_SCALAR_RE, H1_PATTERNS, LIFECYCLE_VALUE_RE, LOCK_ENTRY_RE, OIDC_TOKEN_RE, PNPM_ENTRY_RE,
+    PROC_MEM_RE, REQUIREMENTS_PIN_RE, RUN_KEY_RE, USES_RE,
+)
 
 PATHOLOGICAL_LEN = 1024 * 1024
 CHILD_BUDGET_S = 1.0
@@ -31,6 +34,16 @@ def build_input(unit: str, tail: str, kind: str) -> str:
     if kind == "lc_deep":
         d = 100_000
         return '{"x": ' + "[" * d + "]" * d + ', "scripts": {"postinstall": "curl x | sh"}}'
+    if kind == "lock_entries":
+        return '"a":{' * (PATHOLOGICAL_LEN // 5)
+    if kind == "lock_quotes":
+        return '"' * PATHOLOGICAL_LEN
+    if kind == "lock_escquotes":
+        return '\\"' * (PATHOLOGICAL_LEN // 2)
+    if kind == "lock_deep":
+        d = 100_000
+        return ('{"x": ' + "[" * d + "]" * d + ', "packages": {"": {"name": "root"}, '
+                '"node_modules/a/node_modules/dev-guard-ioc-placeholder": {"version": "0.0.1"}}}')
     if kind == "python_dots":
         return "python" + "." * PATHOLOGICAL_LEN
     return unit * (PATHOLOGICAL_LEN // len(unit)) + tail
@@ -71,6 +84,23 @@ def test_h1_pattern_is_linear(name, unit, tail, kind):
 @pytest.mark.parametrize("kind", ["lc_repeat", "lc_escapes", "lc_deep"])
 def test_lifecycle_value_re_is_linear(kind):
     run_timed(LIFECYCLE_VALUE_RE, "", "", kind, finditer=True)
+
+
+@pytest.mark.parametrize("kind", ["lock_entries", "lock_quotes", "lock_escquotes", "lock_deep"])
+def test_lock_entry_re_is_linear(kind):
+    run_timed(LOCK_ENTRY_RE, "", "", kind, finditer=True)
+
+
+# H4 and H5 line regexes: PROC_MEM/USES/RUN plus the anchored lockfile matchers
+LINE_REGEXES = {"proc_mem": PROC_MEM_RE, "uses": USES_RE, "run": RUN_KEY_RE, "oidc": OIDC_TOKEN_RE,
+                "block": BLOCK_SCALAR_RE, "pnpm": PNPM_ENTRY_RE, "req": REQUIREMENTS_PIN_RE}
+LINE_UNITS = ["/proc/", "/proc/$(", "/proc/$(a", "uses:", "- ", " ", "run:", "-  uses: ", "'", "@", "[", "a=", "ACTIONS_ID_TOKEN_"]
+
+
+@pytest.mark.parametrize("name", list(LINE_REGEXES))
+@pytest.mark.parametrize("unit", LINE_UNITS)
+def test_line_regexes_are_linear(name, unit):
+    run_timed(LINE_REGEXES[name], unit, "", "rep")
 
 
 PARITY = [

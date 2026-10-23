@@ -1,6 +1,8 @@
 """Safe tree walk and H1 hook detection. Text is parsed, never executed."""
+import functools
 import json
 import os
+import re
 import stat
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
@@ -10,6 +12,7 @@ from dev_guard.patterns import (
     CHECK_H1,
     CHECK_H3,
     CHECK_H4,
+    CHECK_H5,
     CHECK_WALK,
     CHECK_H2,
     FOLDER_OPEN_RE,
@@ -31,6 +34,22 @@ from dev_guard.patterns import (
     WORKFLOW_DIRS,
     WORKFLOW_SUFFIXES,
     HOME_CONFIG_FILES,
+    IOCS_PATH,
+    LOCK_ENTRY_RE,
+    LOCK_NAME_FIELD_RE,
+    LOCK_VERSION_FIELD_RE,
+    NODE_MODULES_SEP,
+    NPM_ALIAS_PREFIX,
+    NPM_LOCK_NAME,
+    PATTERN_IOC_MATCH,
+    PATTERN_IOCS_MALFORMED,
+    PATTERN_IOCS_MISSING,
+    PNPM_ENTRY_RE,
+    PNPM_LOCK_NAME,
+    PYPI_NORMALIZE_RE,
+    REQUIREMENTS_PIN_RE,
+    REQUIREMENTS_PREFIX,
+    REQUIREMENTS_SUFFIX,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
     OBFUSCATION_RE,
@@ -304,6 +323,127 @@ def check_workflow(path: Path, text: str) -> list[Finding]:
                 out.append(Finding(CHECK_H4, SEVERITY_MED, str(path), n, PATTERN_UNPINNED_ACTION))
     return out
 
+Iocs = dict[str, frozenset[str]]
+EMPTY_IOCS: Iocs = {"npm": frozenset(), "pypi": frozenset()}
+
+
+def _pypi_key(name: str, version: str) -> str:
+    return f"{PYPI_NORMALIZE_RE.sub('-', name.lower())}=={version.strip()}"
+
+
+def load_iocs(path: Path) -> tuple[Iocs, list[Finding]]:
+    """Never raises: any problem yields empty sets and exactly one low H5 finding."""
+    def problem(pattern: str) -> tuple[Iocs, list[Finding]]:
+        return EMPTY_IOCS, [Finding(CHECK_H5, SEVERITY_LOW, str(path), 1, pattern)]
+
+    text, bad = read_text(path)
+    if bad is not None:
+        return problem(bad)
+    if text is None:
+        return problem(PATTERN_IOCS_MISSING)
+    try:
+        data = json.loads(text)
+    except (ValueError, RecursionError):
+        return problem(PATTERN_IOCS_MALFORMED)
+    if not isinstance(data, dict):
+        return problem(PATTERN_IOCS_MALFORMED)
+    out: dict[str, set[str]] = {"npm": set(), "pypi": set()}
+    for eco, sep in (("npm", "@"), ("pypi", "==")):
+        entries = data.get(eco, [])
+        if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
+            return problem(PATTERN_IOCS_MALFORMED)
+        for entry in entries:
+            name, found, version = entry.rpartition(sep)
+            name, version = name.strip(), version.strip()
+            if not found or not name or not version:
+                return problem(PATTERN_IOCS_MALFORMED)
+            out[eco].add(f"{name}@{version}" if eco == "npm" else _pypi_key(name, version))
+    return {k: frozenset(v) for k, v in out.items()}, []
+
+
+def _npm_candidates(key_name: str, entry_name: str | None, version: str) -> set[str]:
+    if version.startswith(NPM_ALIAS_PREFIX):
+        return {version[len(NPM_ALIAS_PREFIX):]}
+    return {f"{n}@{version}" for n in (key_name, entry_name) if n}
+
+
+def _ioc_finding(path: Path, line: int) -> Finding:
+    return Finding(CHECK_H5, SEVERITY_HIGH, str(path), line, PATTERN_IOC_MATCH)
+
+
+def _lock_entries(data: object) -> Iterator[tuple[str, str, str | None, str]]:
+    """Yield (raw_key, key_name, entry_name, version) from v2/v3 packages and v1 dependencies."""
+    if not isinstance(data, dict):
+        return
+    packages = data.get("packages")
+    pairs = [(k, v) for k, v in packages.items()] if isinstance(packages, dict) else []
+    stack = [data.get("dependencies")]  # explicit stack: no recursion limit on nesting
+    while stack:
+        deps = stack.pop()
+        if not isinstance(deps, dict):
+            continue
+        for key, entry in deps.items():
+            pairs.append((key, entry))
+            if isinstance(entry, dict):
+                stack.append(entry.get("dependencies"))
+    for key, entry in pairs:
+        key_name = key.rpartition(NODE_MODULES_SEP)[2]
+        if key_name and isinstance(entry, dict) and isinstance(entry.get("version"), str):
+            name = entry.get("name")
+            yield key, key_name, name if isinstance(name, str) else None, entry["version"]
+
+
+def _lock_json_fallback(path: Path, text: str, iocs: Iocs) -> list[Finding]:
+    # valid JSON too deep for Python's parser: whole-text scan, line derived from match offset
+    out = [Finding(CHECK_H5, SEVERITY_LOW, str(path), 1, PATTERN_MALFORMED_JSON)]
+    line, prev = 1, 0
+    for m in LOCK_ENTRY_RE.finditer(text):
+        line += text.count("\n", prev, m.start())
+        prev = m.start()
+        key_name = m["key"].rpartition(NODE_MODULES_SEP)[2]
+        ver = LOCK_VERSION_FIELD_RE.search(m["body"])
+        if not key_name or ver is None:
+            continue
+        name = LOCK_NAME_FIELD_RE.search(m["body"])
+        if _npm_candidates(key_name, name["v"] if name else None, ver["v"]) & iocs["npm"]:
+            out.append(_ioc_finding(path, line))
+    return out
+
+
+def _check_npm_lock(path: Path, text: str, iocs: Iocs) -> list[Finding]:
+    try:
+        entries = list(_lock_entries(json.loads(text)))
+    except RecursionError:
+        return _lock_json_fallback(path, text, iocs)
+    except ValueError as err:
+        line = err.lineno if isinstance(err, json.JSONDecodeError) else 1
+        return [Finding(CHECK_H5, SEVERITY_LOW, str(path), line, PATTERN_MALFORMED_JSON)]
+    hits = [_ioc_finding(path, find_line(text, key))
+            for key, key_name, name, version in entries
+            if _npm_candidates(key_name, name, version) & iocs["npm"]]
+    return list(dict.fromkeys(hits))  # v2 lists each package twice
+
+
+def _line_matches(path: Path, text: str, rx, lookup: Callable[[re.Match], bool]) -> list[Finding]:
+    out: list[Finding] = []
+    for n, raw in enumerate(text.split("\n"), 1):
+        if len(raw) > MAX_LINE_LEN:
+            out.append(Finding(CHECK_H5, SEVERITY_LOW, str(path), n, PATTERN_OVERSIZE_LINE))
+            continue
+        m = rx.match(raw)
+        if m and lookup(m):
+            out.append(_ioc_finding(path, n))
+    return out
+
+
+def check_lockfile(path: Path, text: str, iocs: Iocs) -> list[Finding]:
+    name = path.name.lower()
+    if name == NPM_LOCK_NAME:
+        return _check_npm_lock(path, text, iocs)
+    if name == PNPM_LOCK_NAME:
+        return _line_matches(path, text, PNPM_ENTRY_RE, lambda m: f"{m['name']}@{m['version']}" in iocs["npm"])
+    return _line_matches(path, text, REQUIREMENTS_PIN_RE, lambda m: _pypi_key(m["name"], m["version"]) in iocs["pypi"])
+
 
 TARGETS = {
     (".claude", "settings.json"): (CHECK_H1, check_claude_settings),
@@ -312,10 +452,18 @@ TARGETS = {
 }
 
 
-def target_for(path: Path) -> tuple[str, Callable[[Path, str], list[Finding]]] | None:
+def _is_lockfile(name: str) -> bool:
+    return name in (NPM_LOCK_NAME, PNPM_LOCK_NAME) or (
+        name.startswith(REQUIREMENTS_PREFIX) and name.endswith(REQUIREMENTS_SUFFIX))
+
+
+def target_for(path: Path, lockfile_check: Callable[[Path, str], list[Finding]] | None = None
+               ) -> tuple[str, Callable[[Path, str], list[Finding]] | None] | None:
     target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
     if target is None and path.name.lower() == "package.json":
         return CHECK_H3, check_package_json
+    if target is None and _is_lockfile(path.name.lower()):
+        return CHECK_H5, lockfile_check
     if (target is None and path.suffix.lower() in WORKFLOW_SUFFIXES
             and (path.parent.parent.name.lower(), path.parent.name.lower()) == WORKFLOW_DIRS):
         return CHECK_H4, check_workflow
@@ -334,16 +482,17 @@ def _symlink_findings(path: Path) -> list[Finding]:
     return [Finding(check_id, SEVERITY_MED, str(path), 1, PATTERN_SYMLINKED_CONFIG)]
 
 
-def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Finding]:
+def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path: Path = IOCS_PATH) -> list[Finding]:
     seen: set[str] = set()
-    findings: list[Finding] = []
+    iocs, findings = load_iocs(Path(iocs_path))
+    lockfile_check = functools.partial(check_lockfile, iocs=iocs)
     walk_errors: list[Finding] = []
     for path in [*iter_files(Path(root), walk_errors), *map(Path, extra_files)]:
         if path.is_symlink():
             findings += _symlink_findings(path)
             continue
         real = os.path.realpath(path)
-        target = target_for(path)
+        target = target_for(path, lockfile_check)
         if target is None or real in seen:
             continue
         seen.add(real)

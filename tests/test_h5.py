@@ -141,7 +141,7 @@ def test_iocs_without_pypi_key(tmp_path):
     p = tmp_path / "iocs.json"
     p.write_text(json.dumps({"npm": [f"{BAD}@0.0.1"]}))
     assert scan(CLEAN, extra_files=(), iocs_path=p) == []
-    assert len(highs(scan(MALICIOUS, extra_files=(), iocs_path=p))) == 4  # npm lock + 3 pnpm
+    assert len(highs(scan(MALICIOUS, extra_files=(), iocs_path=p))) == 3  # npm lock + 2 unscoped pnpm keys
 
 
 @pytest.mark.parametrize("name,scanned", [

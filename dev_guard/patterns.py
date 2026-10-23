@@ -85,3 +85,30 @@ SHA_RE = re.compile(r"[0-9a-fA-F]{40}")
 PATTERN_ACTIONS_ID_TOKEN = "actions_id_token"
 PATTERN_PROC_MEM = "proc_mem"
 PATTERN_UNPINNED_ACTION = "unpinned_action"
+
+CHECK_H5 = "H5"
+IOCS_PATH = Path(__file__).resolve().parent.parent / "iocs.json"  # repo root; revisit for packaging
+NPM_LOCK_NAME = "package-lock.json"
+PNPM_LOCK_NAME = "pnpm-lock.yaml"
+REQUIREMENTS_PREFIX = "requirements"
+REQUIREMENTS_SUFFIX = ".txt"
+NPM_ALIAS_PREFIX = "npm:"
+NODE_MODULES_SEP = "node_modules/"
+
+# shortcut: pnpm v5 /name/version keys, yarn.lock and poetry.lock are not parsed (yarn/poetry out of scope for H5)
+PNPM_ENTRY_RE = re.compile(
+    r"""^\s+['"]?/?(?P<name>(?:@[^@/\s'"]+/)?[^@/\s'"(]+)@(?P<version>[^_('":\s]+)"""
+)
+REQUIREMENTS_PIN_RE = re.compile(
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]\n]*\])?\s*==\s*(?P<version>[^\s;#,]+)"
+)
+# shortcut: an entry whose "version" comes after a nested object, or a key with backslash escapes, is missed by the fallback; only used on RecursionError files
+# body is captured in a lookahead so nested keys are still visited; [^"\\]* (not (?:[^"\\]|\\.)*) keeps it linear on \"*N
+LOCK_ENTRY_RE = re.compile(r'"(?P<key>[^"\\]*)"\s*:\s*\{(?=(?P<body>[^{}]*))')
+LOCK_VERSION_FIELD_RE = re.compile(r'"version"\s*:\s*"(?P<v>[^"\\]*)"')
+LOCK_NAME_FIELD_RE = re.compile(r'"name"\s*:\s*"(?P<v>[^"\\]*)"')
+PYPI_NORMALIZE_RE = re.compile(r"[-_.]+")
+
+PATTERN_IOC_MATCH = "ioc_match"
+PATTERN_IOCS_MISSING = "iocs_missing"
+PATTERN_IOCS_MALFORMED = "iocs_malformed"
