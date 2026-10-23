@@ -88,3 +88,19 @@ def test_fifo_reported_not_hung(tmp_path):
     p.parent.mkdir(parents=True)
     os.mkfifo(p)
     assert run(tmp_path / "root") == [Finding("H1", "low", str(p), 1, "unreadable_file")]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
+def test_unreadable_dir_reported(tmp_path):
+    d = tmp_path / "root" / "locked"
+    d.mkdir(parents=True)
+    d.chmod(0o000)
+    try:
+        assert run(tmp_path / "root") == [Finding("walk", "low", str(d), 1, "unreadable_dir")]
+    finally:
+        d.chmod(0o755)
+
+
+def test_bom_settings_parsed(tmp_path):
+    put(tmp_path / "root" / ".claude" / "settings.json", "﻿" + MAL)
+    assert any(f.severity == "high" for f in run(tmp_path / "root"))

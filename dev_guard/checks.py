@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dev_guard.patterns import (
     CHECK_H1,
+    CHECK_WALK,
     CHECK_H2,
     FOLDER_OPEN_RE,
     H1_PATTERNS,
@@ -21,6 +22,7 @@ from dev_guard.patterns import (
     PATTERN_OVERSIZE_FILE,
     PATTERN_RUN_ON_FOLDER_OPEN,
     PATTERN_SYMLINKED_CONFIG,
+    PATTERN_UNREADABLE_DIR,
     PATTERN_UNREADABLE_FILE,
     SEVERITY_HIGH,
     SEVERITY_LOW,
@@ -39,8 +41,12 @@ class Finding:
     pattern: str
 
 
-def iter_files(root: Path) -> Iterator[Path]:
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+def iter_files(root: Path, errors: list[Finding] | None = None) -> Iterator[Path]:
+    def on_error(err: OSError) -> None:
+        if errors is not None:
+            errors.append(Finding(CHECK_WALK, SEVERITY_LOW, str(err.filename), 1, PATTERN_UNREADABLE_DIR))
+
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False, onerror=on_error):
         # symlinks are never followed, but are yielded so scan() can report config ones
         yield from (Path(dirpath, d) for d in dirnames if os.path.islink(os.path.join(dirpath, d)))
         dirnames[:] = [
@@ -116,10 +122,10 @@ def check_claude_settings(path: Path, text: str) -> list[Finding]:
         data = json.loads(text)
         hooks = data.get("hooks") if isinstance(data, dict) else None
         dicts = list(iter_command_dicts(hooks)) if isinstance(hooks, dict) else []
-    except json.JSONDecodeError as err:
-        return [Finding(CHECK_H1, SEVERITY_LOW, str(path), err.lineno, PATTERN_MALFORMED_JSON)]
-    except (RecursionError, ValueError):
-        return [Finding(CHECK_H1, SEVERITY_LOW, str(path), 1, PATTERN_MALFORMED_JSON)]
+    except (json.JSONDecodeError, RecursionError, ValueError) as err:
+        line = err.lineno if isinstance(err, json.JSONDecodeError) else 1
+        return [Finding(CHECK_H1, SEVERITY_LOW, str(path), line, PATTERN_MALFORMED_JSON),
+                *_raw_scan(CHECK_H1, path, text)]
     findings: list[Finding] = []
     for d in dicts:
         parts = command_parts(d)
@@ -153,14 +159,14 @@ def _is_folder_open(task: object) -> bool:
     return isinstance(opts, dict) and opts.get("runOn") == "folderOpen"
 
 
-def _raw_scan(path: Path, text: str) -> list[Finding]:
+def _raw_scan(check_id: str, path: Path, text: str) -> list[Finding]:
     # VS Code parses JSONC leniently, so a file our strict parse rejects may still run.
     out: list[Finding] = []
     for n, line in enumerate(text.splitlines(), 1):
-        out += [Finding(CHECK_H2, SEVERITY_HIGH, str(path), n, name)
+        out += [Finding(check_id, SEVERITY_HIGH, str(path), n, name)
                 for name, rx in H1_PATTERNS.items() if rx.search(line)]
         if FOLDER_OPEN_RE.search(line):
-            out.append(Finding(CHECK_H2, SEVERITY_MED, str(path), n, PATTERN_RUN_ON_FOLDER_OPEN))
+            out.append(Finding(check_id, SEVERITY_MED, str(path), n, PATTERN_RUN_ON_FOLDER_OPEN))
     return out
 
 
@@ -173,7 +179,7 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
     except (json.JSONDecodeError, RecursionError, ValueError) as err:
         line = err.lineno if isinstance(err, json.JSONDecodeError) else 1
         return [Finding(CHECK_H2, SEVERITY_LOW, str(path), line, PATTERN_MALFORMED_JSON),
-                *_raw_scan(path, text)]
+                *_raw_scan(CHECK_H2, path, text)]
     findings: list[Finding] = []
     for task, dicts in groups:
         # HOOK-04: an H1 pattern is high with or without folderOpen (task can be run by hand)
@@ -206,7 +212,8 @@ def _symlink_findings(path: Path) -> list[Finding]:
 def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Finding]:
     seen: set[str] = set()
     findings: list[Finding] = []
-    for path in [*iter_files(Path(root)), *map(Path, extra_files)]:
+    walk_errors: list[Finding] = []
+    for path in [*iter_files(Path(root), walk_errors), *map(Path, extra_files)]:
         if path.is_symlink():
             findings += _symlink_findings(path)
             continue
@@ -221,4 +228,4 @@ def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Fi
             findings.append(Finding(check_id, SEVERITY_LOW, str(path), 1, problem))
         elif text is not None:
             findings.extend(check(path, text))
-    return sorted(findings, key=lambda f: (f.file, f.line, f.check_id, f.pattern))
+    return sorted([*findings, *walk_errors], key=lambda f: (f.file, f.line, f.check_id, f.pattern))
