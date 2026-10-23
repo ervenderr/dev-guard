@@ -1,6 +1,5 @@
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -124,18 +123,23 @@ def test_internal_error(monkeypatch, capsys):
     assert "DGSECRET_internal" not in cap.err and "Traceback" not in cap.err
 
 
-def test_broken_pipe():
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "dev_guard", str(FIXTURES)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=REPO_ROOT,
-    )
-    proc.stdout.close()
-    err = proc.stderr.read().decode()
-    proc.stderr.close()
-    assert proc.wait() == 1
-    assert "Traceback" not in err and "BrokenPipeError" not in err
+def test_broken_pipe(monkeypatch, capsys):
+    class Pipe:
+        def write(self, s):
+            raise BrokenPipeError
+
+        def flush(self):
+            pass
+
+        def fileno(self):
+            return 99
+
+    calls = []
+    monkeypatch.setattr(sys, "stdout", Pipe())
+    monkeypatch.setattr(cli.os, "dup2", lambda src, dst: calls.append(dst))  # avoid clobbering real fds
+    assert main([str(FIXTURES / "h1" / "malicious")]) == 1
+    assert calls == [99]
+    assert "Traceback" not in capsys.readouterr().err
 
 
 def _json_run(capsys, argv):
