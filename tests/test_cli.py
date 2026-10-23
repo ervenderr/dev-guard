@@ -239,3 +239,8 @@ def test_stdout_write_failure_exits_internal(monkeypatch, capsys):
 def test_closed_stdout_exits_internal(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdout", None)
     assert main([str(FIXTURES / "h1" / "clean")]) == 70
+
+
+def test_empty_path_is_usage_error(capsys):
+    assert main([""]) == 2
+    assert "empty path" in capsys.readouterr().err

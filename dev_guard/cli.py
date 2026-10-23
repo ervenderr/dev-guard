@@ -80,6 +80,8 @@ def format_json(findings: list[Finding]) -> str:
 def _check_roots(paths: list[str]) -> tuple[list[Path], str | None]:
     roots = []
     for p in paths:
+        if not p:
+            return [], "dev-guard: empty path"
         try:
             path = Path(p).expanduser()
             exists, is_dir = path.exists(), path.is_dir()
