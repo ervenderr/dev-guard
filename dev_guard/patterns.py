@@ -76,7 +76,7 @@ LOCAL_ACTION_PREFIXES: tuple[str, ...] = ("./", "docker://")
 
 OIDC_TOKEN_RE = re.compile(r"ACTIONS_ID_TOKEN_\w+")
 # shortcut: nested $(...) inside the substitution is not matched, upgrade if seen in the wild
-PROC_MEM_RE = re.compile(r"/proc/(?:[^/\s$()]+|\$\([^()\n]*\))/mem\b")
+PROC_MEM_RE = re.compile(r"/proc/(?:[^/\s()]+|\$\([^()\n]*\))/mem\b")
 USES_RE = re.compile(r"""^\s*(?:-\s+)?uses\s*:\s*["']?(?P<ref>[^\s"'#]+)""")
 RUN_KEY_RE = re.compile(r"^(?P<lead>\s*(?:-\s+)?)run\s*:(?P<value>.*)$")
 BLOCK_SCALAR_RE = re.compile(r"^[|>][+\-0-9]*\s*(#.*)?$")

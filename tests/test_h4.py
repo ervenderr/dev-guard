@@ -115,3 +115,15 @@ def test_symlinked_workflows_dir(tmp_path):
     (tmp_path / "elsewhere").mkdir()
     (tmp_path / ".github" / "workflows").symlink_to(tmp_path / "elsewhere")
     assert ("H4", "med", "symlinked_config", 1) in got(scan(tmp_path, extra_files=()))
+
+
+import pytest
+
+
+@pytest.mark.parametrize("cmd", ["cat /proc/$PID/mem", "cat /proc/${PID}/mem", "cat /proc/$(pgrep x)/mem"])
+def test_proc_mem_variable_forms(tmp_path, cmd):
+    assert ("H4", "high", "proc_mem", 1) in got(wf(tmp_path, f"run: {cmd}\n"))
+
+
+def test_proc_mem_cpuinfo_not_flagged(tmp_path):
+    assert not any(p == "proc_mem" for _, _, p, _ in got(wf(tmp_path, "run: cat /proc/cpuinfo > a/mem\n")))
