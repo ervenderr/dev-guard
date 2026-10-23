@@ -244,3 +244,10 @@ def test_closed_stdout_exits_internal(monkeypatch, capsys):
 def test_empty_path_is_usage_error(capsys):
     assert main([""]) == 2
     assert "empty path" in capsys.readouterr().err
+
+
+def test_argparse_error_is_sanitized(capsys):
+    with pytest.raises(SystemExit) as e:
+        main(["--bad\x1b[31mX"])
+    assert e.value.code == 2
+    assert "\x1b" not in capsys.readouterr().err

@@ -25,8 +25,13 @@ from dev_guard.patterns import (
 )
 
 
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str):
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {sanitize(message)}\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="dev-guard")
+    parser = _Parser(prog="dev-guard")
     parser.add_argument("paths", nargs="*")
     parser.add_argument("--json", action="store_true", help="print findings as JSON")
     parser.add_argument("--version", action="version", version=f"dev-guard {__version__}")
