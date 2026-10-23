@@ -4,7 +4,7 @@ import json
 import os
 import re
 import stat
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,17 +79,22 @@ class Finding:
     pattern: str
 
 
-def iter_files(root: Path, errors: list[Finding] | None = None) -> Iterator[Path]:
+def iter_files(root: Path, errors: list[Finding] | None = None, exclude: Collection[str] = ()) -> Iterator[Path]:
     def on_error(err: OSError) -> None:
         if errors is not None:
             errors.append(Finding(CHECK_WALK, SEVERITY_LOW, str(err.filename), 1, PATTERN_UNREADABLE_DIR))
 
+    if exclude:
+        real_root = os.path.realpath(root)
+        if any(real_root == e or real_root.startswith(e + os.sep) for e in exclude):
+            return
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False, onerror=on_error):
         # symlinks are never followed, but are yielded so scan() can report config ones
         yield from (Path(dirpath, d) for d in dirnames if os.path.islink(os.path.join(dirpath, d)))
         dirnames[:] = [
             d for d in dirnames
             if d not in SKIP_DIRS and not os.path.islink(os.path.join(dirpath, d))
+            and not (exclude and os.path.realpath(os.path.join(dirpath, d)) in exclude)
         ]
         for name in filenames:
             yield Path(dirpath, name)
@@ -489,12 +494,13 @@ def _symlink_findings(path: Path) -> list[Finding]:
     return [Finding(check_id, SEVERITY_MED, str(path), 1, PATTERN_SYMLINKED_CONFIG)]
 
 
-def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path: Path | None = None) -> list[Finding]:
+def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path: Path | None = None,
+         exclude: Collection[str] = ()) -> list[Finding]:
     seen: set[str] = set()
     iocs, findings = load_iocs(Path(iocs_path or os.environ.get(IOCS_ENV) or IOCS_PATH))
     lockfile_check = functools.partial(check_lockfile, iocs=iocs)
     walk_errors: list[Finding] = []
-    for path in [*iter_files(Path(root), walk_errors), *map(Path, extra_files)]:
+    for path in [*iter_files(Path(root), walk_errors, exclude), *map(Path, extra_files)]:
         if path.is_symlink():
             findings += _symlink_findings(path)
             continue

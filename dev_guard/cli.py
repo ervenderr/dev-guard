@@ -34,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="dev-guard")
     parser.add_argument("paths", nargs="*")
     parser.add_argument("--json", action="store_true", help="print findings as JSON")
+    parser.add_argument("--exclude", action="append", default=[], metavar="PATH",
+                        help="skip this directory subtree (repeatable)")
     parser.add_argument("--version", action="version", version=f"dev-guard {__version__}")
     return parser
 
@@ -43,15 +45,16 @@ def sanitize(s: str) -> str:
     return "".join(c if c.isprintable() else repr(c)[1:-1] for c in s)
 
 
-def run_scan(roots: list[Path], extra_files: Iterable[Path]) -> list[Finding]:
+def run_scan(roots: list[Path], extra_files: Iterable[Path], exclude: Iterable[str] = ()) -> list[Finding]:
     found: set[Finding] = set()
     extras = tuple(extra_files)
+    exclude = tuple(exclude)
     unique: dict[str, Path] = {}
     for r in roots:
         unique.setdefault(os.path.realpath(r), r)  # first spelling wins
     roots = list(unique.values())
     for i, root in enumerate(roots):
-        found.update(scan(root, extra_files=extras if i == 0 else ()))
+        found.update(scan(root, extra_files=extras if i == 0 else (), exclude=exclude))
     return sorted(
         found,
         key=lambda f: (SEVERITY_ORDER[f.severity], f.file, f.line, f.check_id, f.pattern),
@@ -111,8 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     if err:
         sys.stderr.write(err + "\n")
         return EXIT_USAGE
+    if any(not e for e in args.exclude):
+        sys.stderr.write("dev-guard: empty exclude path\n")
+        return EXIT_USAGE
     try:
-        findings = run_scan(roots, extra_files)
+        exclude = tuple(os.path.realpath(Path(e).expanduser()) for e in args.exclude)
+        findings = run_scan(roots, extra_files, exclude)
         code = EXIT_HIGH if any(f.severity == SEVERITY_HIGH for f in findings) else EXIT_CLEAN
         text = format_json(findings) if args.json else format_table(findings)
     except Exception as exc:  # only the type name is printed: exc text may carry file content
