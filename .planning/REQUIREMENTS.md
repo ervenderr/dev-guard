@@ -24,13 +24,13 @@
 ### CLI & Output
 - [x] **CLI-01**: `dev-guard` scans `~/Projects` plus `~`-level config files by default and accepts an explicit path
 - [x] **CLI-02**: Findings print as a terminal table (severity, check ID, file:line, pattern)
-- [ ] **CLI-03**: `--json` outputs findings as machine-readable JSON
+- [x] **CLI-03**: `--json` outputs findings as machine-readable JSON
 - [x] **CLI-04**: Exit code is 1 if any high finding, else 0
-- [ ] **CLI-05**: Scan of `~/Projects` completes in under 30s
+- [x] **CLI-05**: Scan of `~/Projects` completes in under 30s
 
 ### Tests & Docs
 - [x] **TEST-01**: Each check H1–H5 has a failing test on a malicious fixture and a passing test on a clean fixture
-- [ ] **TEST-02**: Scan of a clean repo exits 0; scan of the fixtures exits 1 with the expected IDs
+- [x] **TEST-02**: Scan of a clean repo exits 0; scan of the fixtures exits 1 with the expected IDs
 - [ ] **DOC-01**: README documents install, usage, and the n8n webhook flow
 
 ### n8n Alerting (Phase 2)
@@ -74,10 +74,10 @@
 | TEST-01 | Phase 2 | Complete |
 | CLI-01 | Phase 3 | Complete |
 | CLI-02 | Phase 3 | Complete |
-| CLI-03 | Phase 3 | Pending |
+| CLI-03 | Phase 3 | Complete |
 | CLI-04 | Phase 3 | Complete |
-| CLI-05 | Phase 3 | Pending |
-| TEST-02 | Phase 3 | Pending |
+| CLI-05 | Phase 3 | Complete |
+| TEST-02 | Phase 3 | Complete |
 | ALERT-01 | Phase 4 | Pending |
 | ALERT-02 | Phase 4 | Pending |
 | ALERT-03 | Phase 4 | Pending |
