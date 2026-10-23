@@ -22,7 +22,6 @@ from dev_guard.patterns import (
     LIFECYCLE_VALUE_RE,
     BLOCK_SCALAR_RE,
     LOCAL_ACTION_PREFIXES,
-    MAX_LINE_LEN,
     OIDC_TOKEN_RE,
     PATTERN_ACTIONS_ID_TOKEN,
     PATTERN_PROC_MEM,
@@ -57,7 +56,6 @@ from dev_guard.patterns import (
     PATTERN_MALFORMED_JSON,
     PATTERN_NOT_IN_ALLOWLIST,
     PATTERN_OVERSIZE_FILE,
-    PATTERN_OVERSIZE_LINE,
     PATTERN_RUN_ON_FOLDER_OPEN,
     PATTERN_SYMLINKED_CONFIG,
     PATTERN_UNREADABLE_DIR,
@@ -182,6 +180,11 @@ def check_claude_settings(path: Path, text: str) -> list[Finding]:
     return findings
 
 
+def h1_findings(check_id: str, path: Path, text: str, line: int) -> list[Finding]:
+    return [Finding(check_id, SEVERITY_HIGH, str(path), line, name)
+            for name, rx in H1_PATTERNS.items() if rx.search(text)]
+
+
 def _high(check_id: str, path: Path, text: str, d: dict) -> list[Finding]:
     parts = command_parts(d)
     joined = " ".join(parts)
@@ -204,8 +207,7 @@ def _raw_scan(check_id: str, path: Path, text: str) -> list[Finding]:
     # VS Code parses JSONC leniently, so a file our strict parse rejects may still run.
     out: list[Finding] = []
     for n, line in enumerate(text.split("\n"), 1):
-        out += [Finding(check_id, SEVERITY_HIGH, str(path), n, name)
-                for name, rx in H1_PATTERNS.items() if rx.search(line)]
+        out += h1_findings(check_id, path, line, n)
         if FOLDER_OPEN_RE.search(line):
             out.append(Finding(check_id, SEVERITY_MED, str(path), n, PATTERN_RUN_ON_FOLDER_OPEN))
     return out
@@ -234,10 +236,7 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
 
 
 def _lifecycle_findings(path: Path, value: str, line: int) -> list[Finding]:
-    if len(value) > MAX_LINE_LEN:
-        return [Finding(CHECK_H3, SEVERITY_LOW, str(path), line, PATTERN_OVERSIZE_LINE)]
-    hits = [Finding(CHECK_H3, SEVERITY_HIGH, str(path), line, name)
-            for name, rx in H1_PATTERNS.items() if rx.search(value)]
+    hits = h1_findings(CHECK_H3, path, value, line)
     if not hits and not is_allowlisted(value, LIFECYCLE_ALLOWLIST):
         hits.append(Finding(CHECK_H3, SEVERITY_MED, str(path), line, PATTERN_NOT_IN_ALLOWLIST))
     return hits
@@ -250,9 +249,6 @@ def _deep_json_fallback(path: Path, text: str) -> list[Finding]:
     for m in LIFECYCLE_VALUE_RE.finditer(text):
         line += text.count("\n", prev, m.start())
         prev = m.start()
-        if m["end"] is None:
-            out.append(Finding(CHECK_H3, SEVERITY_LOW, str(path), line, PATTERN_OVERSIZE_LINE))
-            continue
         try:
             value = json.loads('"' + m["value"] + '"')
         except ValueError:
@@ -280,11 +276,6 @@ def check_package_json(path: Path, text: str) -> list[Finding]:
     return findings
 
 
-def _h1_hits(path: Path, line: str, n: int) -> list[Finding]:
-    return [Finding(CHECK_H4, SEVERITY_HIGH, str(path), n, name)
-            for name, rx in H1_PATTERNS.items() if rx.search(line)]
-
-
 def _indent(line: str) -> int:
     return len(line) - len(line.lstrip())
 
@@ -295,9 +286,6 @@ def check_workflow(path: Path, text: str) -> list[Finding]:
     run_indent: int | None = None
     for n, raw in enumerate(text.split("\n"), 1):
         line = raw.removesuffix("\r")
-        if len(line) > MAX_LINE_LEN:
-            out.append(Finding(CHECK_H4, SEVERITY_LOW, str(path), n, PATTERN_OVERSIZE_LINE))
-            continue
         if OIDC_TOKEN_RE.search(line):
             out.append(Finding(CHECK_H4, SEVERITY_HIGH, str(path), n, PATTERN_ACTIONS_ID_TOKEN))
         if PROC_MEM_RE.search(line):
@@ -306,7 +294,7 @@ def check_workflow(path: Path, text: str) -> list[Finding]:
             continue
         if run_indent is not None:
             if _indent(line) > run_indent:
-                out += _h1_hits(path, line, n)
+                out += h1_findings(CHECK_H4, path, line, n)
                 continue
             run_indent = None
         run = RUN_KEY_RE.match(line)
@@ -315,7 +303,7 @@ def check_workflow(path: Path, text: str) -> list[Finding]:
             if BLOCK_SCALAR_RE.match(value):
                 run_indent = len(run["lead"])
             else:
-                out += _h1_hits(path, value, n)
+                out += h1_findings(CHECK_H4, path, value, n)
         uses = USES_RE.match(line)
         if uses and not uses["ref"].startswith(LOCAL_ACTION_PREFIXES):
             ref = uses["ref"].rpartition("@")
@@ -427,9 +415,6 @@ def _check_npm_lock(path: Path, text: str, iocs: Iocs) -> list[Finding]:
 def _line_matches(path: Path, text: str, rx, lookup: Callable[[re.Match], bool]) -> list[Finding]:
     out: list[Finding] = []
     for n, raw in enumerate(text.split("\n"), 1):
-        if len(raw) > MAX_LINE_LEN:
-            out.append(Finding(CHECK_H5, SEVERITY_LOW, str(path), n, PATTERN_OVERSIZE_LINE))
-            continue
         m = rx.match(raw)
         if m and lookup(m):
             out.append(_ioc_finding(path, n))

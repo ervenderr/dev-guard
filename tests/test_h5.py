@@ -151,3 +151,8 @@ def test_iocs_without_pypi_key(tmp_path):
 def test_requirements_names(tmp_path, name, scanned):
     findings = scan_text(tmp_path, f"{BAD}==0.0.1\n", name)
     assert (len(highs(findings)) == 1) is scanned
+
+
+def test_long_requirements_line_still_matched(tmp_path):
+    text = f"{BAD}==0.0.1 # " + "a" * 5000 + "\n"
+    assert ("H5", "high", "ioc_match", 1) in got(scan_text(tmp_path, text, "requirements.txt"))

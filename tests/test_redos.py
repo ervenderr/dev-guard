@@ -128,6 +128,5 @@ def test_h1_parity(cmd, expected):
     assert {n for n, rx in H1_PATTERNS.items() if rx.search(cmd)} == expected
 
 
-def test_cap_constants():
-    assert patterns.MAX_LINE_LEN == 4096
-    assert patterns.PATTERN_OVERSIZE_LINE == "oversize_line"
+def test_no_line_cap():
+    assert not hasattr(patterns, "MAX_LINE_LEN")

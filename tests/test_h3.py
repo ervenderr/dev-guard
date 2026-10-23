@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from dev_guard.checks import scan
-from dev_guard.patterns import MAX_FILE_BYTES, MAX_LINE_LEN
+from dev_guard.patterns import MAX_FILE_BYTES
 
 FIXTURES = Path(__file__).parent / "fixtures" / "h3"
 MALICIOUS = FIXTURES / "malicious"
@@ -63,7 +63,7 @@ def test_deep_nesting_multiline(tmp_path):
 
 def test_deep_nesting_minified(tmp_path):
     text = nested(f'"scripts": {{"build": "curl x", "postinstall": "{CURL_SH}"}}')
-    assert len(text) > MAX_LINE_LEN
+    assert len(text) > 5000
     findings = got(scan_text(tmp_path, text))
     assert ("H3", "low", "malformed_json", 1) in findings
     assert ("H3", "high", "network_fetch", 1) in findings
@@ -76,10 +76,9 @@ def test_deep_nesting_escaped_value(tmp_path):
 
 
 def test_deep_nesting_oversize_value(tmp_path):
-    text = nested('"scripts": {"postinstall": "curl ' + "a" * (MAX_LINE_LEN + 10) + '"}')
+    text = nested('"scripts": {"postinstall": "curl ' + "a" * (5000 + 10) + '"}')
     findings = got(scan_text(tmp_path, text))
-    assert ("H3", "low", "oversize_line", 1) in findings
-    assert not got(scan_text(tmp_path, text), "high")
+    assert ("H3", "high", "network_fetch", 1) in findings
 
 
 def test_deep_nesting_only_build_curl(tmp_path):
@@ -90,7 +89,7 @@ def test_deep_nesting_only_build_curl(tmp_path):
 def test_oversize_value(tmp_path):
     text = json.dumps({"scripts": {"postinstall": "curl " + "a" * 5000}}, indent=2)
     findings = scan_text(tmp_path, text)
-    assert [(f.severity, f.pattern, f.line) for f in findings] == [("low", "oversize_line", 3)]
+    assert [(f.severity, f.pattern, f.line) for f in findings] == [("high", "network_fetch", 3)]
 
 
 def test_non_dict_and_non_string(tmp_path):

@@ -48,12 +48,9 @@ PATTERN_UNREADABLE_DIR = "unreadable_dir"
 PATTERN_OBFUSCATED = "obfuscated_command"
 PATTERN_OVERSIZE_FILE = "oversize_file"
 PATTERN_UNREADABLE_FILE = "unreadable_file"
-PATTERN_OVERSIZE_LINE = "oversize_line"
 
 SKIP_DIRS: frozenset[str] = frozenset({"node_modules", ".git"})
 MAX_FILE_BYTES: int = 1024 * 1024
-# defence in depth: no single line/value longer than this is regex-matched
-MAX_LINE_LEN: int = 4096
 HOME_CONFIG_FILES: tuple[Path, ...] = (
     Path.home() / ".claude" / "settings.json",
     Path.home() / ".claude" / "settings.local.json",
@@ -65,8 +62,7 @@ LIFECYCLE_ALLOWLIST: tuple[str, ...] = (
 )
 # shortcut: fallback matches lifecycle keys anywhere in the file, not only under "scripts"; only runs on RecursionError files
 LIFECYCLE_VALUE_RE = re.compile(
-    '"(?:' + "|".join(map(re.escape, LIFECYCLE_SCRIPTS)) + r')"\s*:\s*"(?P<value>(?:[^"\\]|\\.){0,%d})(?P<end>")?'
-    % MAX_LINE_LEN
+    '"(?:' + "|".join(map(re.escape, LIFECYCLE_SCRIPTS)) + r')"\s*:\s*"(?P<value>(?:[^"\\]|\\.)*)(?P<end>")?'
 )
 
 CHECK_H4 = "H4"

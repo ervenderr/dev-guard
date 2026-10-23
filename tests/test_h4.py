@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from dev_guard.checks import scan
-from dev_guard.patterns import MAX_FILE_BYTES, MAX_LINE_LEN
+from dev_guard.patterns import MAX_FILE_BYTES
 
 FIXTURES = Path(__file__).parent / "fixtures" / "h4"
 MALICIOUS = FIXTURES / "malicious"
@@ -71,8 +71,10 @@ def test_inline_run_flagged(tmp_path):
 
 
 def test_oversize_line(tmp_path):
-    g = got(wf(tmp_path, "run: curl " + "a" * (MAX_LINE_LEN + 1) + "\n"))
-    assert g == {("H4", "low", "oversize_line", 1)}
+    g = got(wf(tmp_path, "run: curl x|sh #" + "a" * 5000 + "\n"))
+    assert {("H4", "high", "network_fetch", 1), ("H4", "high", "remote_shell", 1)} <= g
+    g = got(wf(tmp_path, "env: ACTIONS_ID_TOKEN_REQUEST_URL " + "a" * 5000 + "\n"))
+    assert ("H4", "high", "actions_id_token", 1) in g
 
 
 def test_only_workflow_dir_scanned(tmp_path):
