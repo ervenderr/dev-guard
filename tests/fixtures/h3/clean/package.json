@@ -1,0 +1,12 @@
+{
+  "name": "clean-pkg",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "postinstall": "husky install"
+  },
+  "dependencies": {
+    "curl-wrapper": "^1.0.0"
+  }
+}
