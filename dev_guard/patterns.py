@@ -21,6 +21,13 @@ H1_PATTERNS: dict[str, re.Pattern[str]] = {
     ),
 }
 
+HOOK_ALLOWLIST: tuple[str, ...] = ("prettier", "npx prettier", "eslint", "npx eslint", "git")
+SHELL_CHAIN_RE = re.compile(r"[;&|`\n<>]|\$\(")
+
+PATTERN_NOT_IN_ALLOWLIST = "not_in_allowlist"
+PATTERN_MALFORMED_JSON = "malformed_json"
+PATTERN_RUN_ON_FOLDER_OPEN = "run_on_folder_open"
+
 SKIP_DIRS: frozenset[str] = frozenset({"node_modules", ".git"})
 MAX_FILE_BYTES: int = 1024 * 1024
 HOME_CONFIG_FILES: tuple[Path, ...] = (Path.home() / ".claude" / "settings.json",)

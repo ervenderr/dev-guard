@@ -9,8 +9,14 @@ from dev_guard.patterns import (
     CHECK_H1,
     H1_PATTERNS,
     HOME_CONFIG_FILES,
+    HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
+    PATTERN_MALFORMED_JSON,
+    PATTERN_NOT_IN_ALLOWLIST,
     SEVERITY_HIGH,
+    SEVERITY_LOW,
+    SEVERITY_MED,
+    SHELL_CHAIN_RE,
     SKIP_DIRS,
 )
 
@@ -68,20 +74,31 @@ def find_line(text: str, needle: str) -> int:
     return 1
 
 
+# shortcut: prefix match trusts any args after git/npx, so git -c alias.x='!sh ...' or npx <unknown-pkg> pass as allowlisted; upgrade to argv parsing if seen in the wild
+def is_allowlisted(command: str) -> bool:
+    cmd = command.strip()
+    if SHELL_CHAIN_RE.search(cmd):
+        return False
+    return any(cmd == a or cmd.startswith(a + " ") for a in HOOK_ALLOWLIST)
+
+
 def check_claude_settings(path: Path, text: str) -> list[Finding]:
     try:
         data = json.loads(text)
         hooks = data.get("hooks") if isinstance(data, dict) else None
         commands = collect_commands(hooks) if isinstance(hooks, dict) else []
+    except json.JSONDecodeError as err:
+        return [Finding(CHECK_H1, SEVERITY_LOW, str(path), err.lineno, PATTERN_MALFORMED_JSON)]
     except (RecursionError, ValueError):
-        # shortcut: hostile/malformed JSON yields nothing; plan 01-02 reports malformed_json
-        return []
-    return [
-        Finding(CHECK_H1, SEVERITY_HIGH, str(path), find_line(text, cmd), name)
-        for cmd in commands
-        for name, rx in H1_PATTERNS.items()
-        if rx.search(cmd)
-    ]
+        return [Finding(CHECK_H1, SEVERITY_LOW, str(path), 1, PATTERN_MALFORMED_JSON)]
+    findings: list[Finding] = []
+    for cmd in commands:
+        hits = [name for name, rx in H1_PATTERNS.items() if rx.search(cmd)]
+        line = find_line(text, cmd)
+        findings += [Finding(CHECK_H1, SEVERITY_HIGH, str(path), line, n) for n in hits]
+        if not hits and not is_allowlisted(cmd):
+            findings.append(Finding(CHECK_H1, SEVERITY_MED, str(path), line, PATTERN_NOT_IN_ALLOWLIST))
+    return findings
 
 
 TARGETS = {(".claude", "settings.json"): check_claude_settings}

@@ -72,4 +72,4 @@ def test_unreadable_skipped(tmp_path):
 )
 def test_hostile_json_does_not_raise(tmp_path, payload):
     put(tmp_path / "root" / ".claude" / "settings.json", payload)
-    assert run(tmp_path / "root") == []
+    assert [(f.severity, f.pattern) for f in run(tmp_path / "root")] == [("low", "malformed_json")]
