@@ -80,10 +80,14 @@ def format_json(findings: list[Finding]) -> str:
 def _check_roots(paths: list[str]) -> tuple[list[Path], str | None]:
     roots = []
     for p in paths:
-        path = Path(p).expanduser()
-        if not path.exists():
+        try:
+            path = Path(p).expanduser()
+            exists, is_dir = path.exists(), path.is_dir()
+        except (OSError, RuntimeError):
+            return [], f"dev-guard: {sanitize(p)}: cannot access"
+        if not exists:
             return [], f"dev-guard: {sanitize(p)}: no such directory"
-        if not path.is_dir():
+        if not is_dir:
             return [], f"dev-guard: {sanitize(p)}: not a directory"
         roots.append(path)
     return roots, None
@@ -108,4 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.flush()
     except BrokenPipeError:
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+    except (OSError, AttributeError) as exc:  # AttributeError: stdout closed (None)
+        sys.stderr.write(f"dev-guard: internal error: {type(exc).__name__}\n")
+        return EXIT_INTERNAL
     return code

@@ -216,3 +216,26 @@ def test_unknown_flag():
     with pytest.raises(SystemExit) as e:
         main(["--fix"])
     assert e.value.code == 2
+
+
+def test_unresolvable_home_is_usage_error(capsys):
+    assert main(["~nouser_xyz_qq"]) == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_stdout_write_failure_exits_internal(monkeypatch, capsys):
+    class Boom:
+        def write(self, s):
+            raise OSError("disk full")
+
+        def flush(self):
+            pass
+
+    monkeypatch.setattr(sys, "stdout", Boom())
+    assert main([str(FIXTURES / "h1" / "clean")]) == 70
+    assert "internal error: OSError" in capsys.readouterr().err
+
+
+def test_closed_stdout_exits_internal(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdout", None)
+    assert main([str(FIXTURES / "h1" / "clean")]) == 70
