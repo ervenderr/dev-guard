@@ -24,7 +24,8 @@ def test_required_strings():
 
 def test_exit_codes():
     t = text()
-    for code, word in [("0", "clean|no high"), ("1", "high"), ("2", "usage|path"), ("70", "internal")]:
+    for code, word in [("0", "clean|no high"), ("1", "high"), ("2", "usage|path"), ("70", "internal"),
+                       ("64", "webhook"), ("75", "post")]:
         assert re.search(rf"^\W*{code}\W.*({word})", t, re.M | re.I), code
 
 
@@ -64,5 +65,11 @@ def test_privacy_and_dedupe_notes():
     t = text().lower()
     assert "never file contents" in t
     assert "production" in t and "static data" in t
-    assert "indefinitely" in t
+    assert "stops being reported" in t
     assert "typeversion" in t or "confirm" in t
+
+
+def test_wrapper_blind_spot_and_failure_log_documented():
+    t = text()
+    assert re.search(r"never scanned|not scanned", t, re.I) and "tests/" in t
+    assert ".dev-guard-cron.log" in t and "https" in t
