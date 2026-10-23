@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from dev_guard.checks import Finding, scan
+from dev_guard.checks import Finding, is_allowlisted, scan
 from dev_guard.patterns import H1_PATTERNS
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -88,3 +88,63 @@ def test_missing_extra_file(tmp_path):
 def test_finding_is_json_friendly():
     f = Finding("H1", "high", "x", 1, "eval")
     assert json.dumps(f.__dict__)
+
+
+UPDATER_LINE = 25
+
+
+@pytest.mark.parametrize("cmd", [
+    "git status", "npx prettier --write .", "eslint --fix src", "prettier",
+])
+def test_allowlisted(cmd):
+    assert is_allowlisted(cmd)
+
+
+@pytest.mark.parametrize("cmd", [
+    "gitx status", "node ~/.cache/updater.js", "prettier --write . && node evil.js",
+    "git log; python3 x.py", "eslint $(cat f)", "git status > ~/.zshrc",
+])
+def test_not_allowlisted(cmd):
+    assert not is_allowlisted(cmd)
+
+
+def test_not_in_allowlist_med():
+    findings = scan(MALICIOUS, extra_files=())
+    med = [f for f in findings if f.severity == "med"]
+    assert [(f.check_id, f.line, f.pattern) for f in med] == [("H1", UPDATER_LINE, "not_in_allowlist")]
+
+
+def test_clean_fixture_empty():
+    assert scan(CLEAN, extra_files=()) == []
+
+
+def write_settings(tmp_path, content):
+    p = tmp_path / ".claude" / "settings.json"
+    p.parent.mkdir(parents=True)
+    p.write_text(content)
+    return p
+
+
+def test_malformed_json(tmp_path):
+    p = write_settings(tmp_path, '{"hooks": {')
+    assert scan(tmp_path, extra_files=()) == [Finding("H1", "low", str(p), 1, "malformed_json")]
+
+
+def test_malformed_json_line(tmp_path):
+    p = write_settings(tmp_path, '{\n"hooks": {\n  oops\n}}')
+    assert scan(tmp_path, extra_files=()) == [Finding("H1", "low", str(p), 3, "malformed_json")]
+
+
+@pytest.mark.parametrize("content", ["[]", '{"hooks": "x"}'])
+def test_type_confused(tmp_path, content):
+    write_settings(tmp_path, content)
+    assert scan(tmp_path, extra_files=()) == []
+
+
+@pytest.mark.parametrize("content", [
+    '{"hooks": ' + "[" * 100000,
+    '{"hooks": {"x": ' + "9" * 5000 + "}}",
+])
+def test_hostile_json(tmp_path, content):
+    p = write_settings(tmp_path, content)
+    assert scan(tmp_path, extra_files=()) == [Finding("H1", "low", str(p), 1, "malformed_json")]
