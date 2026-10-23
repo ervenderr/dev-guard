@@ -43,4 +43,7 @@ PATTERN_UNREADABLE_FILE = "unreadable_file"
 
 SKIP_DIRS: frozenset[str] = frozenset({"node_modules", ".git"})
 MAX_FILE_BYTES: int = 1024 * 1024
-HOME_CONFIG_FILES: tuple[Path, ...] = (Path.home() / ".claude" / "settings.json",)
+HOME_CONFIG_FILES: tuple[Path, ...] = (
+    Path.home() / ".claude" / "settings.json",
+    Path.home() / ".claude" / "settings.local.json",
+)

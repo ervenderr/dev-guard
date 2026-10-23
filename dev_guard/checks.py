@@ -180,6 +180,7 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
 
 TARGETS = {
     (".claude", "settings.json"): (CHECK_H1, check_claude_settings),
+    (".claude", "settings.local.json"): (CHECK_H1, check_claude_settings),
     (".vscode", "tasks.json"): (CHECK_H2, check_vscode_tasks),
 }
 

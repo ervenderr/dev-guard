@@ -176,3 +176,10 @@ def test_hook_args_scanned(tmp_path):
 def test_obfuscation_med(tmp_path, cmd):
     write_settings(tmp_path, json.dumps({"hooks": {"Stop": [{"command": cmd}]}}))
     assert ("med", "obfuscated_command") in {(f.severity, f.pattern) for f in scan(tmp_path, extra_files=())}
+
+
+def test_settings_local_scanned(tmp_path):
+    p = tmp_path / ".claude" / "settings.local.json"
+    p.parent.mkdir()
+    p.write_text((MALICIOUS / ".claude" / "settings.json").read_text())
+    assert any(f.severity == "high" and f.file == str(p) for f in scan(tmp_path, extra_files=()))
