@@ -1,16 +1,21 @@
 """Command line entry point: table output and exit codes."""
 import argparse
+import dataclasses
+import json
 import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
 
+from dev_guard import __version__
 from dev_guard.checks import Finding, scan
 from dev_guard.patterns import (
+    DEFAULT_SCAN_ROOTS,
     EXIT_CLEAN,
     EXIT_HIGH,
     EXIT_INTERNAL,
     EXIT_USAGE,
+    HOME_CONFIG_FILES,
     NO_FINDINGS_MSG,
     SEVERITY_HIGH,
     SEVERITY_LOW,
@@ -23,6 +28,8 @@ from dev_guard.patterns import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="dev-guard")
     parser.add_argument("paths", nargs="*")
+    parser.add_argument("--json", action="store_true", help="print findings as JSON")
+    parser.add_argument("--version", action="version", version=f"dev-guard {__version__}")
     return parser
 
 
@@ -51,9 +58,23 @@ def format_table(findings: list[Finding]) -> str:
     ]
     widths = [max(len(r[i]) for r in rows) for i in range(len(TABLE_HEADERS))]
     lines = [" | ".join(c.ljust(w) for c, w in zip(r, widths)).rstrip() for r in rows]
-    count = lambda sev: sum(f.severity == sev for f in findings)  # noqa: E731
-    lines.append(f"{count(SEVERITY_HIGH)} high, {count(SEVERITY_MED)} med, {count(SEVERITY_LOW)} low")
+    s = _summary(findings)
+    lines.append(f"{s['high']} high, {s['med']} med, {s['low']} low")
     return "\n".join(lines)
+
+
+def _summary(findings: list[Finding]) -> dict[str, int]:
+    return {
+        key: sum(f.severity == sev for f in findings)
+        for key, sev in (("high", SEVERITY_HIGH), ("med", SEVERITY_MED), ("low", SEVERITY_LOW))
+    }
+
+
+def format_json(findings: list[Finding]) -> str:
+    # ensure_ascii (default) escapes control chars and surrogates, so output is safe ASCII JSON
+    return json.dumps(
+        {"findings": [dataclasses.asdict(f) for f in findings], "summary": _summary(findings)}
+    )
 
 
 def _check_roots(paths: list[str]) -> tuple[list[Path], str | None]:
@@ -70,14 +91,15 @@ def _check_roots(paths: list[str]) -> tuple[list[Path], str | None]:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    roots, err = _check_roots(args.paths)
+    extra_files = () if args.paths else HOME_CONFIG_FILES
+    roots, err = _check_roots(args.paths or [str(p) for p in DEFAULT_SCAN_ROOTS])
     if err:
         sys.stderr.write(err + "\n")
         return EXIT_USAGE
     try:
-        findings = run_scan(roots, ())
+        findings = run_scan(roots, extra_files)
         code = EXIT_HIGH if any(f.severity == SEVERITY_HIGH for f in findings) else EXIT_CLEAN
-        text = format_table(findings)
+        text = format_json(findings) if args.json else format_table(findings)
     except Exception as exc:  # only the type name is printed: exc text may carry file content
         sys.stderr.write(f"dev-guard: internal error: {type(exc).__name__}\n")
         return EXIT_INTERNAL
