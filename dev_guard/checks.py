@@ -70,10 +70,6 @@ def iter_command_dicts(obj: object) -> Iterator[dict]:
             yield from iter_command_dicts(item)
 
 
-def collect_commands(obj: object) -> list[str]:
-    return [d["command"] for d in iter_command_dicts(obj) if isinstance(d.get("command"), str)]
-
-
 def _text_of(item: object) -> str | None:
     if isinstance(item, str):
         return item
@@ -109,22 +105,25 @@ def check_claude_settings(path: Path, text: str) -> list[Finding]:
     try:
         data = json.loads(text)
         hooks = data.get("hooks") if isinstance(data, dict) else None
-        commands = collect_commands(hooks) if isinstance(hooks, dict) else []
+        dicts = list(iter_command_dicts(hooks)) if isinstance(hooks, dict) else []
     except json.JSONDecodeError as err:
         return [Finding(CHECK_H1, SEVERITY_LOW, str(path), err.lineno, PATTERN_MALFORMED_JSON)]
     except (RecursionError, ValueError):
         return [Finding(CHECK_H1, SEVERITY_LOW, str(path), 1, PATTERN_MALFORMED_JSON)]
     findings: list[Finding] = []
-    for cmd in commands:
-        hits = [name for name, rx in H1_PATTERNS.items() if rx.search(cmd)]
-        line = find_line(text, cmd)
-        findings += [Finding(CHECK_H1, SEVERITY_HIGH, str(path), line, n) for n in hits]
-        if not hits and not is_allowlisted(cmd):
+    for d in dicts:
+        parts = command_parts(d)
+        if not parts:
+            continue
+        hits = _high(CHECK_H1, path, text, d)
+        findings += hits
+        if not hits and not is_allowlisted(" ".join(parts)):
+            line = find_line(text, parts[0])
             findings.append(Finding(CHECK_H1, SEVERITY_MED, str(path), line, PATTERN_NOT_IN_ALLOWLIST))
     return findings
 
 
-def _h2_high(path: Path, text: str, d: dict) -> list[Finding]:
+def _high(check_id: str, path: Path, text: str, d: dict) -> list[Finding]:
     parts = command_parts(d)
     joined = " ".join(parts)
     out: list[Finding] = []
@@ -133,7 +132,7 @@ def _h2_high(path: Path, text: str, d: dict) -> list[Finding]:
             continue
         part = next((p for p in parts if rx.search(p)), parts[0] if parts else None)
         line = find_line(text, part) if part is not None else 1
-        out.append(Finding(CHECK_H2, SEVERITY_HIGH, str(path), line, name))
+        out.append(Finding(check_id, SEVERITY_HIGH, str(path), line, name))
     return out
 
 
@@ -167,7 +166,7 @@ def check_vscode_tasks(path: Path, text: str) -> list[Finding]:
     for task, dicts in groups:
         # HOOK-04: an H1 pattern is high with or without folderOpen (task can be run by hand)
         for d in dicts:
-            findings += _h2_high(path, text, d)
+            findings += _high(CHECK_H2, path, text, d)
         if _is_folder_open(task):
             parts = command_parts(dicts[0]) if dicts else []
             line = find_line(text, parts[0]) if parts else 1
