@@ -251,3 +251,13 @@ def test_argparse_error_is_sanitized(capsys):
         main(["--bad\x1b[31mX"])
     assert e.value.code == 2
     assert "\x1b" not in capsys.readouterr().err
+
+
+def test_symlinked_duplicate_root_not_double_counted(tmp_path, capsys):
+    real = tmp_path / "real"
+    shutil.copytree(FIXTURES / "h1" / "malicious", real)
+    (tmp_path / "link").symlink_to(real)
+    main([str(real)])
+    one = capsys.readouterr().out
+    main([str(real), str(tmp_path / "link")])
+    assert capsys.readouterr().out == one

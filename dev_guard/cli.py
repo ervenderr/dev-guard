@@ -46,6 +46,10 @@ def sanitize(s: str) -> str:
 def run_scan(roots: list[Path], extra_files: Iterable[Path]) -> list[Finding]:
     found: set[Finding] = set()
     extras = tuple(extra_files)
+    unique: dict[str, Path] = {}
+    for r in roots:
+        unique.setdefault(os.path.realpath(r), r)  # first spelling wins
+    roots = list(unique.values())
     for i, root in enumerate(roots):
         found.update(scan(root, extra_files=extras if i == 0 else ()))
     return sorted(
