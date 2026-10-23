@@ -265,3 +265,54 @@ def test_symlinked_duplicate_root_not_double_counted(tmp_path, capsys):
     one = capsys.readouterr().out
     main([str(real), str(tmp_path / "link")])
     assert capsys.readouterr().out == one
+
+
+def _two_copies(tmp_path):
+    for n in ("a", "b"):
+        shutil.copytree(FIXTURES / "h1" / "malicious", tmp_path / n)
+
+
+def test_exclude_skips_one_subtree(tmp_path, capsys):
+    _two_copies(tmp_path)
+    code, out = _json_run(capsys, ["--json", str(tmp_path), "--exclude", str(tmp_path / "a")])
+    assert code == 1
+    assert out["findings"]
+    assert all(f["file"].startswith(str(tmp_path / "b")) for f in out["findings"])
+    assert any(f["check_id"] == "H1" and f["severity"] == "high" for f in out["findings"])
+
+
+def test_exclude_repeatable_exits_clean(tmp_path, capsys):
+    _two_copies(tmp_path)
+    argv = ["--json", str(tmp_path), "--exclude", str(tmp_path / "a"), "--exclude", str(tmp_path / "b")]
+    code, out = _json_run(capsys, argv)
+    assert code == 0
+    assert out["findings"] == []
+
+
+def test_exclude_trailing_slash_and_symlink(tmp_path, capsys):
+    _two_copies(tmp_path)
+    (tmp_path / "link").symlink_to(tmp_path / "a")
+    for spelling in (str(tmp_path / "a") + "/", str(tmp_path / "link")):
+        code, out = _json_run(capsys, ["--json", str(tmp_path / "a"), str(tmp_path / "b"), "--exclude", spelling])
+        assert code == 1
+        assert all(f["file"].startswith(str(tmp_path / "b")) for f in out["findings"])
+
+
+def test_exclude_nonexistent_is_ignored(tmp_path, capsys):
+    _two_copies(tmp_path)
+    base = _json_run(capsys, ["--json", str(tmp_path)])
+    got = _json_run(capsys, ["--json", str(tmp_path), "--exclude", str(tmp_path / "nope")])
+    assert got == base
+
+
+def test_exclude_empty_is_usage_error(capsys):
+    assert main(["--exclude", "", _dirs("clean")[0]]) == 2
+    cap = capsys.readouterr()
+    assert "empty exclude path" in cap.err and "Traceback" not in cap.err
+
+
+def test_exclude_root_inside_excluded(tmp_path, capsys):
+    _two_copies(tmp_path)
+    code, out = _json_run(capsys, ["--json", str(tmp_path / "a"), "--exclude", str(tmp_path)])
+    assert code == 0
+    assert out["findings"] == []
