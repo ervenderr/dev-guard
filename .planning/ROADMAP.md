@@ -24,7 +24,11 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
   3. A `.vscode/tasks.json` with `runOn: folderOpen` or a H1-pattern command yields a finding
   4. Malformed JSON yields a low finding instead of a crash, and files over 1 MB, `node_modules`, and `.git` are skipped
   5. No finding output contains secret values, only file:line and pattern name
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Walking skeleton: venv/pytest, Finding model, safe walker, H1 high detection end-to-end
+- [ ] 01-02-PLAN.md — H1 allowlist + malformed JSON, H2 .vscode/tasks.json check
 
 ### Phase 2: Package, CI & IOC Checks
 **Goal**: Install scripts, workflow steps, and known-bad lockfile entries are detected
