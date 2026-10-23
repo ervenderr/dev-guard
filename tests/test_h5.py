@@ -181,3 +181,30 @@ def test_iocs_path_env_override(tmp_path, monkeypatch):
     (tmp_path / "proj").mkdir()
     (tmp_path / "proj" / "package-lock.json").write_text(lock_v3({f"node_modules/{BAD}": {"version": "0.0.1"}}))
     assert any(f.pattern == "ioc_match" for f in scan(tmp_path / "proj", extra_files=()))
+
+
+@pytest.mark.parametrize("line", [
+    f"{BAD}===0.0.1",
+    f"{BAD}==0.0.1.0",
+    f"{BAD}==v0.0.1",
+    f"{BAD} \\\n    ==0.0.1",
+    f"{BAD} \\\r\n    ==0.0.1",
+])
+def test_requirements_pin_forms(tmp_path, line):
+    assert ("H5", "high", "ioc_match", 1) in got(scan_text(tmp_path, line + "\n", "requirements.txt"))
+
+
+def test_requirements_other_version_not_flagged(tmp_path):
+    assert highs(scan_text(tmp_path, f"{BAD}==0.0.1.1\n{BAD}==0.0.10\n", "requirements.txt")) == set()
+
+
+@pytest.mark.parametrize("sub,name", [
+    ("requirements", "base.txt"), ("", "dev-requirements.txt"), ("", "requirements-dev.txt"),
+    ("", "npm-shrinkwrap.json"),
+])
+def test_more_lockfile_names(tmp_path, sub, name):
+    d = tmp_path / sub
+    d.mkdir(exist_ok=True)
+    text = lock_v3({f"node_modules/{BAD}": {"version": "0.0.1"}}) if name.endswith(".json") else f"{BAD}==0.0.1\n"
+    (d / name).write_text(text)
+    assert any(f.pattern == "ioc_match" for f in scan(tmp_path, extra_files=()))

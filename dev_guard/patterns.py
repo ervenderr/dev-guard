@@ -87,9 +87,9 @@ PATTERN_UNPINNED_ACTION = "unpinned_action"
 CHECK_H5 = "H5"
 IOCS_ENV = "DEV_GUARD_IOCS"  # overrides IOCS_PATH when scan() gets no iocs_path
 IOCS_PATH = Path(__file__).resolve().parent.parent / "iocs.json"  # repo root; revisit for packaging
-NPM_LOCK_NAME = "package-lock.json"
+NPM_LOCK_NAMES: tuple[str, ...] = ("package-lock.json", "npm-shrinkwrap.json")
 PNPM_LOCK_NAME = "pnpm-lock.yaml"
-REQUIREMENTS_PREFIX = "requirements"
+REQUIREMENTS_MARKER = "requirements"  # in the file name or the parent dir name
 REQUIREMENTS_SUFFIX = ".txt"
 NPM_ALIAS_PREFIX = "npm:"
 NODE_MODULES_SEP = "node_modules/"
@@ -99,13 +99,16 @@ PNPM_ENTRY_RE = re.compile(
     r"""^\s+['"]?/?(?P<name>(?:@[^@/\s'"]+/)?[^@/\s'"(]+)@(?P<version>[^_('":\s]+)"""
 )
 REQUIREMENTS_PIN_RE = re.compile(
-    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]\n]*\])?\s*==\s*(?P<version>[^\s;#,]+)"
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]\n]*\])?\s*===?\s*(?P<version>[^\s;#,]+)"
 )
 # shortcut: an entry whose "version" comes after a nested object, or a key with backslash escapes, is missed by the fallback; only used on RecursionError files
 # body is captured in a lookahead so nested keys are still visited; [^"\\]* (not (?:[^"\\]|\\.)*) keeps it linear on \"*N
 LOCK_ENTRY_RE = re.compile(r'"(?P<key>[^"\\]*)"\s*:\s*\{(?=(?P<body>[^{}]*))')
 LOCK_VERSION_FIELD_RE = re.compile(r'"version"\s*:\s*"(?P<v>[^"\\]*)"')
 LOCK_NAME_FIELD_RE = re.compile(r'"name"\s*:\s*"(?P<v>[^"\\]*)"')
+# PEP 440: v prefix and trailing .0 segments do not change the version
+PYPI_VERSION_PREFIX_RE = re.compile(r"^[vV]")
+PYPI_TRAILING_ZEROS_RE = re.compile(r"(?:\.0+)+$")
 PYPI_NORMALIZE_RE = re.compile(r"[-_.]+")
 
 PATTERN_IOC_MATCH = "ioc_match"

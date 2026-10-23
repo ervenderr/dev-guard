@@ -39,15 +39,17 @@ from dev_guard.patterns import (
     LOCK_VERSION_FIELD_RE,
     NODE_MODULES_SEP,
     NPM_ALIAS_PREFIX,
-    NPM_LOCK_NAME,
+    NPM_LOCK_NAMES,
     PATTERN_IOC_MATCH,
     PATTERN_IOCS_MALFORMED,
     PATTERN_IOCS_MISSING,
     PNPM_ENTRY_RE,
     PNPM_LOCK_NAME,
     PYPI_NORMALIZE_RE,
+    PYPI_TRAILING_ZEROS_RE,
+    PYPI_VERSION_PREFIX_RE,
     REQUIREMENTS_PIN_RE,
-    REQUIREMENTS_PREFIX,
+    REQUIREMENTS_MARKER,
     REQUIREMENTS_SUFFIX,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
@@ -314,7 +316,8 @@ EMPTY_IOCS: Iocs = {"npm": frozenset(), "pypi": frozenset()}
 
 
 def _pypi_key(name: str, version: str) -> str:
-    return f"{PYPI_NORMALIZE_RE.sub('-', name.lower())}=={version.strip()}"
+    version = PYPI_TRAILING_ZEROS_RE.sub("", PYPI_VERSION_PREFIX_RE.sub("", version.strip()))
+    return f"{PYPI_NORMALIZE_RE.sub('-', name.lower())}=={version}"
 
 
 def load_iocs(path: Path) -> tuple[Iocs, list[Finding]]:
@@ -414,10 +417,25 @@ def _check_npm_lock(path: Path, text: str, iocs: Iocs) -> list[Finding]:
     return list(dict.fromkeys(hits))  # v2 lists each package twice
 
 
+def _logical_lines(text: str) -> Iterator[tuple[int, str]]:
+    """Yield (first line number, text) with backslash continuations joined."""
+    buf, start = "", 0
+    for n, raw in enumerate(text.split("\n"), 1):
+        raw = raw.removesuffix("\r")
+        start = start or n
+        if raw.endswith("\\"):
+            buf += raw[:-1] + " "
+            continue
+        yield start, buf + raw
+        buf, start = "", 0
+    if buf:
+        yield start, buf
+
+
 def _line_matches(path: Path, text: str, rx, lookup: Callable[[re.Match], bool]) -> list[Finding]:
     out: list[Finding] = []
-    for n, raw in enumerate(text.split("\n"), 1):
-        m = rx.match(raw)
+    for n, logical in _logical_lines(text):
+        m = rx.match(logical)
         if m and lookup(m):
             out.append(_ioc_finding(path, n))
     return out
@@ -425,7 +443,7 @@ def _line_matches(path: Path, text: str, rx, lookup: Callable[[re.Match], bool])
 
 def check_lockfile(path: Path, text: str, iocs: Iocs) -> list[Finding]:
     name = path.name.lower()
-    if name == NPM_LOCK_NAME:
+    if name in NPM_LOCK_NAMES:
         return _check_npm_lock(path, text, iocs)
     if name == PNPM_LOCK_NAME:
         return _line_matches(path, text, PNPM_ENTRY_RE, lambda m: f"{m['name']}@{m['version']}" in iocs["npm"])
@@ -439,9 +457,11 @@ TARGETS = {
 }
 
 
-def _is_lockfile(name: str) -> bool:
-    return name in (NPM_LOCK_NAME, PNPM_LOCK_NAME) or (
-        name.startswith(REQUIREMENTS_PREFIX) and name.endswith(REQUIREMENTS_SUFFIX))
+def _is_lockfile(path: Path) -> bool:
+    name = path.name.lower()
+    return name in (*NPM_LOCK_NAMES, PNPM_LOCK_NAME) or (
+        name.endswith(REQUIREMENTS_SUFFIX)
+        and (REQUIREMENTS_MARKER in re.split(r"[-_.]", name) or path.parent.name.lower() == REQUIREMENTS_MARKER))
 
 
 def target_for(path: Path, lockfile_check: Callable[[Path, str], list[Finding]] | None = None
@@ -449,7 +469,7 @@ def target_for(path: Path, lockfile_check: Callable[[Path, str], list[Finding]] 
     target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
     if target is None and path.name.lower() == "package.json":
         return CHECK_H3, check_package_json
-    if target is None and _is_lockfile(path.name.lower()):
+    if target is None and _is_lockfile(path):
         return CHECK_H5, lockfile_check
     if (target is None and path.suffix.lower() in WORKFLOW_SUFFIXES
             and (path.parent.parent.name.lower(), path.parent.name.lower()) == WORKFLOW_DIRS):
