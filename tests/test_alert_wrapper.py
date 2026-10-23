@@ -112,7 +112,8 @@ def test_bad_scan_path_no_post(receiver, tmp_path):
 def test_http_500_fails(receiver, tmp_path):
     receiver.status = 500
     p = _run({"DEV_GUARD_WEBHOOK_URL": receiver.url}, _copy("clean", tmp_path))
-    assert p.returncode != 0
+    assert p.returncode == 75
+    assert "curl exit 22" in p.stderr and "http 500" in p.stderr
     _no_leak(p, receiver.url, receiver.token)
 
 
@@ -123,7 +124,8 @@ def test_unreachable_fails_without_leak(tmp_path):
     token = "DGURL_" + uuid.uuid4().hex
     url = f"http://127.0.0.1:{port}/webhook/{token}"
     p = _run({"DEV_GUARD_WEBHOOK_URL": url}, _copy("clean", tmp_path))
-    assert p.returncode != 0
+    assert p.returncode == 75
+    assert "curl exit 7" in p.stderr
     _no_leak(p, url, token)
 
 
@@ -138,3 +140,19 @@ def test_secret_marker_not_in_post_body(receiver, tmp_path):
     assert p.returncode == 0, p.stderr
     assert len(receiver.requests) == 1
     assert marker.encode() not in receiver.requests[0]["body"]
+
+
+@pytest.mark.parametrize("bad", [
+    "http://example.com/webhook/x",
+    "ftp://example.com/x",
+    "http://127.0.0.1:80@example.com/x",
+    "file:///etc/passwd",
+    "https://example.com/a\\nb",
+    "https://example.com/a\rb",
+    "https://example.com/a\tb",
+    "https://example.com/a\"b",
+])
+def test_bad_url_rejected_before_scan(bad, tmp_path):
+    p = _run({"DEV_GUARD_WEBHOOK_URL": bad}, _copy("clean", tmp_path))
+    assert p.returncode == 64
+    assert bad not in p.stdout + p.stderr

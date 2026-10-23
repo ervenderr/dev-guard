@@ -9,8 +9,13 @@ if [ -z "$url" ]; then
   exit 64
 fi
 case "$url" in
-  *'"'*|*$'\n'*)
+  *'"'*|*\\*|*@*|*[[:cntrl:]]*)
     echo "run-alert: webhook URL contains an invalid character" >&2
+    exit 64
+    ;;
+  https://*|http://127.0.0.1:*|http://127.0.0.1/*) ;;  # plain http only for loopback
+  *)
+    echo "run-alert: webhook URL must start with https://" >&2
     exit 64
     ;;
 esac
@@ -26,10 +31,13 @@ if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
   exit "$rc"
 fi
 
-# URL goes via curl config on stdin so it never shows in argv; curl stderr is discarded.
-if ! printf 'url = "%s"\n' "$url" | curl -K - -sS --fail --max-time 30 -X POST \
-    -H 'Content-Type: application/json' --data-binary @"$out" >/dev/null 2>&1; then
-  echo "run-alert: webhook POST failed" >&2
+# URL goes via curl config on stdin so it never shows in argv; curl stderr is discarded
+# (it can echo the URL), so only the exit code and numeric HTTP status are logged.
+code="$(printf 'url = "%s"\n' "$url" | curl -K - -sS --fail --max-time 30 -X POST \
+    -H 'Content-Type: application/json' --data-binary @"$out" -o /dev/null -w '%{http_code}' 2>/dev/null)"
+crc=$?
+if [ "$crc" -ne 0 ]; then
+  echo "run-alert: webhook POST failed (curl exit $crc, http ${code//[!0-9]/})" >&2
   exit 75
 fi
 exit 0
