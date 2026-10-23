@@ -156,3 +156,28 @@ def test_requirements_names(tmp_path, name, scanned):
 def test_long_requirements_line_still_matched(tmp_path):
     text = f"{BAD}==0.0.1 # " + "a" * 5000 + "\n"
     assert ("H5", "high", "ioc_match", 1) in got(scan_text(tmp_path, text, "requirements.txt"))
+
+
+def test_iocs_bad_entry_keeps_good_ones(tmp_path):
+    content = {"npm": ["bad", 5, f"{BAD}@0.0.1"], "pypi": "x"}
+    findings = scan_iocs_over(tmp_path, content, lock_v3({f"node_modules/{BAD}": {"version": "0.0.1"}}))
+    assert [(f.severity, f.pattern) for f in findings if f.pattern == "iocs_malformed"] == [("low", "iocs_malformed")]
+    assert any(f.pattern == "ioc_match" for f in findings)
+
+
+def scan_iocs_over(tmp_path, iocs, lock):
+    d = tmp_path / "proj"
+    d.mkdir()
+    (d / "package-lock.json").write_text(lock)
+    p = tmp_path / "iocs.json"
+    p.write_text(json.dumps(iocs))
+    return scan(d, extra_files=(), iocs_path=p)
+
+
+def test_iocs_path_env_override(tmp_path, monkeypatch):
+    p = tmp_path / "custom.json"
+    p.write_text(json.dumps({"npm": [f"{BAD}@0.0.1"]}))
+    monkeypatch.setenv("DEV_GUARD_IOCS", str(p))
+    (tmp_path / "proj").mkdir()
+    (tmp_path / "proj" / "package-lock.json").write_text(lock_v3({f"node_modules/{BAD}": {"version": "0.0.1"}}))
+    assert any(f.pattern == "ioc_match" for f in scan(tmp_path / "proj", extra_files=()))

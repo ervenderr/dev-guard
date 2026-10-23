@@ -32,6 +32,7 @@ from dev_guard.patterns import (
     WORKFLOW_DIRS,
     WORKFLOW_SUFFIXES,
     HOME_CONFIG_FILES,
+    IOCS_ENV,
     IOCS_PATH,
     LOCK_ENTRY_RE,
     LOCK_NAME_FIELD_RE,
@@ -317,7 +318,7 @@ def _pypi_key(name: str, version: str) -> str:
 
 
 def load_iocs(path: Path) -> tuple[Iocs, list[Finding]]:
-    """Never raises: any problem yields empty sets and exactly one low H5 finding."""
+    """Never raises: any problem yields one low H5 finding; bad entries are skipped, good ones kept."""
     def problem(pattern: str) -> tuple[Iocs, list[Finding]]:
         return EMPTY_IOCS, [Finding(CHECK_H5, SEVERITY_LOW, str(path), 1, pattern)]
 
@@ -333,17 +334,21 @@ def load_iocs(path: Path) -> tuple[Iocs, list[Finding]]:
     if not isinstance(data, dict):
         return problem(PATTERN_IOCS_MALFORMED)
     out: dict[str, set[str]] = {"npm": set(), "pypi": set()}
+    bad_entries = False
     for eco, sep in (("npm", "@"), ("pypi", "==")):
         entries = data.get(eco, [])
-        if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
-            return problem(PATTERN_IOCS_MALFORMED)
+        if not isinstance(entries, list):
+            bad_entries = True
+            continue
         for entry in entries:
-            name, found, version = entry.rpartition(sep)
+            name, found, version = entry.rpartition(sep) if isinstance(entry, str) else ("", "", "")
             name, version = name.strip(), version.strip()
             if not found or not name or not version:
-                return problem(PATTERN_IOCS_MALFORMED)
+                bad_entries = True
+                continue
             out[eco].add(f"{name}@{version}" if eco == "npm" else _pypi_key(name, version))
-    return {k: frozenset(v) for k, v in out.items()}, []
+    findings = [Finding(CHECK_H5, SEVERITY_LOW, str(path), 1, PATTERN_IOCS_MALFORMED)] if bad_entries else []
+    return {k: frozenset(v) for k, v in out.items()}, findings
 
 
 def _npm_candidates(key_name: str, entry_name: str | None, version: str) -> set[str]:
@@ -464,9 +469,9 @@ def _symlink_findings(path: Path) -> list[Finding]:
     return [Finding(check_id, SEVERITY_MED, str(path), 1, PATTERN_SYMLINKED_CONFIG)]
 
 
-def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path: Path = IOCS_PATH) -> list[Finding]:
+def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES, iocs_path: Path | None = None) -> list[Finding]:
     seen: set[str] = set()
-    iocs, findings = load_iocs(Path(iocs_path))
+    iocs, findings = load_iocs(Path(iocs_path or os.environ.get(IOCS_ENV) or IOCS_PATH))
     lockfile_check = functools.partial(check_lockfile, iocs=iocs)
     walk_errors: list[Finding] = []
     for path in [*iter_files(Path(root), walk_errors), *map(Path, extra_files)]:
