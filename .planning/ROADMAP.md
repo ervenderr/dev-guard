@@ -58,10 +58,10 @@ Plans:
   3. `dev-guard --json` prints valid machine-readable JSON findings
   4. Exit code is 1 on any high finding and 0 on a clean repo; scanning the fixtures exits 1 with the expected check IDs
   5. A scan of `~/Projects` finishes in under 30s
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 03-01-PLAN.md — `dev-guard PATH` end-to-end: table, exit codes 0/1/2, sanitized paths, packaging
+- [x] 03-01-PLAN.md — `dev-guard PATH` end-to-end: table, exit codes 0/1/2, sanitized paths, packaging
 - [ ] 03-02-PLAN.md — --json, --version, default roots, TEST-02 e2e, no-secret marker, perf (5k-file test + real ~/Projects timing)
 
 ### Phase 4: n8n Alerting & README
@@ -82,5 +82,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
 | 2. Package, CI & IOC Checks | 3/3 | Complete   | 2026-10-23 |
-| 3. CLI Output & Exit Codes | 0/2 | Planned | - |
+| 3. CLI Output & Exit Codes | 1/2 | In Progress|  |
 | 4. n8n Alerting & README | 0/0 | Not started | - |

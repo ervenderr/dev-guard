@@ -22,10 +22,10 @@
 - [x] **IOC-01**: User sees a high finding when a `package-lock.json`, `pnpm-lock.yaml`, or `requirements*.txt` entry matches a package@version in `iocs.json`
 
 ### CLI & Output
-- [ ] **CLI-01**: `dev-guard` scans `~/Projects` plus `~`-level config files by default and accepts an explicit path
-- [ ] **CLI-02**: Findings print as a terminal table (severity, check ID, file:line, pattern)
+- [x] **CLI-01**: `dev-guard` scans `~/Projects` plus `~`-level config files by default and accepts an explicit path
+- [x] **CLI-02**: Findings print as a terminal table (severity, check ID, file:line, pattern)
 - [ ] **CLI-03**: `--json` outputs findings as machine-readable JSON
-- [ ] **CLI-04**: Exit code is 1 if any high finding, else 0
+- [x] **CLI-04**: Exit code is 1 if any high finding, else 0
 - [ ] **CLI-05**: Scan of `~/Projects` completes in under 30s
 
 ### Tests & Docs
@@ -72,10 +72,10 @@
 | CI-02 | Phase 2 | Complete |
 | IOC-01 | Phase 2 | Complete |
 | TEST-01 | Phase 2 | Complete |
-| CLI-01 | Phase 3 | Pending |
-| CLI-02 | Phase 3 | Pending |
+| CLI-01 | Phase 3 | Complete |
+| CLI-02 | Phase 3 | Complete |
 | CLI-03 | Phase 3 | Pending |
-| CLI-04 | Phase 3 | Pending |
+| CLI-04 | Phase 3 | Complete |
 | CLI-05 | Phase 3 | Pending |
 | TEST-02 | Phase 3 | Pending |
 | ALERT-01 | Phase 4 | Pending |
