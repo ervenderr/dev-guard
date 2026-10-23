@@ -8,7 +8,7 @@ Build a read-only, stdlib-only Python CLI that detects supply-chain worm persist
 
 - [x] **Phase 1: Finding Model, Safe Walking & Hook Checks** - Finding model, safe file walk, H1/H2 with tests (completed 2026-10-23)
 - [x] **Phase 2: Package, CI & IOC Checks** - H3, H4, H5 with tests for all five checks (completed 2026-10-23)
-- [ ] **Phase 3: CLI Output & Exit Codes** - Default scan, table/JSON output, exit code, performance
+- [x] **Phase 3: CLI Output & Exit Codes** - Default scan, table/JSON output, exit code, performance (completed 2026-10-23)
 - [ ] **Phase 4: n8n Alerting & README** - Cron to n8n webhook to Telegram/email, docs
 
 ## Phase Details
@@ -58,11 +58,11 @@ Plans:
   3. `dev-guard --json` prints valid machine-readable JSON findings
   4. Exit code is 1 on any high finding and 0 on a clean repo; scanning the fixtures exits 1 with the expected check IDs
   5. A scan of `~/Projects` finishes in under 30s
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md — `dev-guard PATH` end-to-end: table, exit codes 0/1/2, sanitized paths, packaging
-- [ ] 03-02-PLAN.md — --json, --version, default roots, TEST-02 e2e, no-secret marker, perf (5k-file test + real ~/Projects timing)
+- [x] 03-02-PLAN.md — --json, --version, default roots, TEST-02 e2e, no-secret marker, perf (5k-file test + real ~/Projects timing)
 
 ### Phase 4: n8n Alerting & README
 **Goal**: User gets Telegram/email alerts on new high findings and can set it all up from the README
@@ -82,5 +82,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Finding Model, Safe Walking & Hook Checks | 2/2 | Complete   | 2026-10-23 |
 | 2. Package, CI & IOC Checks | 3/3 | Complete   | 2026-10-23 |
-| 3. CLI Output & Exit Codes | 1/2 | In Progress|  |
+| 3. CLI Output & Exit Codes | 2/2 | Complete   | 2026-10-23 |
 | 4. n8n Alerting & README | 0/0 | Not started | - |
