@@ -16,7 +16,7 @@
 - [x] **HOOK-04**: User sees a finding for `.vscode/tasks.json` task commands matching the H1 patterns
 
 ### Package & CI Checks
-- [ ] **PKG-01**: User sees a finding for `package.json` `preinstall`/`install`/`postinstall` scripts matching H1 patterns
+- [x] **PKG-01**: User sees a finding for `package.json` `preinstall`/`install`/`postinstall` scripts matching H1 patterns
 - [ ] **CI-01**: User sees a finding for `.github/workflows/*.yml` steps echoing or reading `ACTIONS_ID_TOKEN_*` or `/proc/*/mem`
 - [ ] **CI-02**: User sees a finding for third-party actions not pinned to a SHA
 - [ ] **IOC-01**: User sees a high finding when a `package-lock.json`, `pnpm-lock.yaml`, or `requirements*.txt` entry matches a package@version in `iocs.json`
@@ -67,7 +67,7 @@
 | HOOK-02 | Phase 1 | Complete |
 | HOOK-03 | Phase 1 | Complete |
 | HOOK-04 | Phase 1 | Complete |
-| PKG-01 | Phase 2 | Pending |
+| PKG-01 | Phase 2 | Complete |
 | CI-01 | Phase 2 | Pending |
 | CI-02 | Phase 2 | Pending |
 | IOC-01 | Phase 2 | Pending |
