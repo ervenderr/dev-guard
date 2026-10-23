@@ -183,3 +183,10 @@ def test_settings_local_scanned(tmp_path):
     p.parent.mkdir()
     p.write_text((MALICIOUS / ".claude" / "settings.json").read_text())
     assert any(f.severity == "high" and f.file == str(p) for f in scan(tmp_path, extra_files=()))
+
+
+def test_case_insensitive_target(tmp_path):
+    p = tmp_path / ".Claude" / "Settings.json"
+    p.parent.mkdir()
+    p.write_text((MALICIOUS / ".claude" / "settings.json").read_text())
+    assert any(f.severity == "high" for f in scan(tmp_path, extra_files=()))

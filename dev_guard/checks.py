@@ -190,7 +190,7 @@ def scan(root: Path, extra_files: Iterable[Path] = HOME_CONFIG_FILES) -> list[Fi
     findings: list[Finding] = []
     for path in [*iter_files(Path(root)), *map(Path, extra_files)]:
         real = os.path.realpath(path)
-        target = TARGETS.get((path.parent.name, path.name))
+        target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
         if target is None or real in seen:
             continue
         seen.add(real)
