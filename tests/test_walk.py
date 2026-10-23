@@ -81,3 +81,10 @@ def test_unreadable_reported(tmp_path):
 def test_hostile_json_does_not_raise(tmp_path, payload):
     put(tmp_path / "root" / ".claude" / "settings.json", payload)
     assert [(f.severity, f.pattern) for f in run(tmp_path / "root")] == [("low", "malformed_json")]
+
+
+def test_fifo_reported_not_hung(tmp_path):
+    p = tmp_path / "root" / ".claude" / "settings.json"
+    p.parent.mkdir(parents=True)
+    os.mkfifo(p)
+    assert run(tmp_path / "root") == [Finding("H1", "low", str(p), 1, "unreadable_file")]

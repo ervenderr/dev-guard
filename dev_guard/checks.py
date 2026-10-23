@@ -1,6 +1,7 @@
 """Safe tree walk and H1 hook detection. Text is parsed, never executed."""
 import json
 import os
+import stat
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,13 +54,19 @@ def iter_files(root: Path) -> Iterator[Path]:
 def read_text(path: Path) -> tuple[str | None, str | None]:
     """Return (text, problem_pattern). Both None means the file does not exist."""
     try:
-        if not path.is_file():
-            return None, None
-        if path.stat().st_size > MAX_FILE_BYTES:
-            return None, PATTERN_OVERSIZE_FILE
-        return path.read_text(encoding="utf-8", errors="replace"), None
+        # one fd for type check and read: no swap race, never follows a link, never blocks on a FIFO
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                return None, PATTERN_UNREADABLE_FILE
+            data = f.read(MAX_FILE_BYTES + 1)
+    except FileNotFoundError:
+        return None, None
     except OSError:
         return None, PATTERN_UNREADABLE_FILE
+    if len(data) > MAX_FILE_BYTES:
+        return None, PATTERN_OVERSIZE_FILE
+    return data.decode("utf-8-sig", errors="replace"), None
 
 
 def iter_command_dicts(obj: object) -> Iterator[dict]:
