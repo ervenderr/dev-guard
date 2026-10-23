@@ -22,7 +22,7 @@ python3.12 -m venv .venv && . .venv/bin/activate && pip install -e .
 dev-guard                       # scans ~/Projects plus ~/.claude/settings.json and settings.local.json
 dev-guard PATH...               # scan only these paths
 dev-guard --json                # machine-readable findings
-dev-guard --exclude PATH        # skip a path; repeatable (e.g. dev-guard's own tests/ fixtures)
+dev-guard --exclude PATH        # skip a directory subtree (files are not matched); repeatable (e.g. dev-guard's own tests/ fixtures)
 dev-guard --version
 ```
 
