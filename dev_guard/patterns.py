@@ -68,3 +68,20 @@ LIFECYCLE_VALUE_RE = re.compile(
     '"(?:' + "|".join(map(re.escape, LIFECYCLE_SCRIPTS)) + r')"\s*:\s*"(?P<value>(?:[^"\\]|\\.){0,%d})(?P<end>")?'
     % MAX_LINE_LEN
 )
+
+CHECK_H4 = "H4"
+WORKFLOW_SUFFIXES: tuple[str, ...] = (".yml", ".yaml")
+WORKFLOW_DIRS: tuple[str, ...] = (".github", "workflows")
+LOCAL_ACTION_PREFIXES: tuple[str, ...] = ("./", "docker://")
+
+OIDC_TOKEN_RE = re.compile(r"ACTIONS_ID_TOKEN_\w+")
+# shortcut: nested $(...) inside the substitution is not matched, upgrade if seen in the wild
+PROC_MEM_RE = re.compile(r"/proc/(?:[^/\s$()]+|\$\([^()\n]*\))/mem\b")
+USES_RE = re.compile(r"""^\s*(?:-\s+)?uses\s*:\s*["']?(?P<ref>[^\s"'#]+)""")
+RUN_KEY_RE = re.compile(r"^(?P<lead>\s*(?:-\s+)?)run\s*:(?P<value>.*)$")
+BLOCK_SCALAR_RE = re.compile(r"^[|>][+\-0-9]*\s*(#.*)?$")
+SHA_RE = re.compile(r"[0-9a-fA-F]{40}")
+
+PATTERN_ACTIONS_ID_TOKEN = "actions_id_token"
+PATTERN_PROC_MEM = "proc_mem"
+PATTERN_UNPINNED_ACTION = "unpinned_action"

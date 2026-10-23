@@ -9,6 +9,7 @@ from pathlib import Path
 from dev_guard.patterns import (
     CHECK_H1,
     CHECK_H3,
+    CHECK_H4,
     CHECK_WALK,
     CHECK_H2,
     FOLDER_OPEN_RE,
@@ -16,7 +17,19 @@ from dev_guard.patterns import (
     LIFECYCLE_ALLOWLIST,
     LIFECYCLE_SCRIPTS,
     LIFECYCLE_VALUE_RE,
+    BLOCK_SCALAR_RE,
+    LOCAL_ACTION_PREFIXES,
     MAX_LINE_LEN,
+    OIDC_TOKEN_RE,
+    PATTERN_ACTIONS_ID_TOKEN,
+    PATTERN_PROC_MEM,
+    PATTERN_UNPINNED_ACTION,
+    PROC_MEM_RE,
+    RUN_KEY_RE,
+    SHA_RE,
+    USES_RE,
+    WORKFLOW_DIRS,
+    WORKFLOW_SUFFIXES,
     HOME_CONFIG_FILES,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
@@ -248,6 +261,50 @@ def check_package_json(path: Path, text: str) -> list[Finding]:
     return findings
 
 
+def _h1_hits(path: Path, line: str, n: int) -> list[Finding]:
+    return [Finding(CHECK_H4, SEVERITY_HIGH, str(path), n, name)
+            for name, rx in H1_PATTERNS.items() if rx.search(line)]
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+# shortcut: line-based text scan, no YAML parser; flow mappings/anchors can hide uses:/run:, upgrade if seen in the wild
+def check_workflow(path: Path, text: str) -> list[Finding]:
+    out: list[Finding] = []
+    run_indent: int | None = None
+    for n, raw in enumerate(text.split("\n"), 1):
+        line = raw.removesuffix("\r")
+        if len(line) > MAX_LINE_LEN:
+            out.append(Finding(CHECK_H4, SEVERITY_LOW, str(path), n, PATTERN_OVERSIZE_LINE))
+            continue
+        if OIDC_TOKEN_RE.search(line):
+            out.append(Finding(CHECK_H4, SEVERITY_HIGH, str(path), n, PATTERN_ACTIONS_ID_TOKEN))
+        if PROC_MEM_RE.search(line):
+            out.append(Finding(CHECK_H4, SEVERITY_HIGH, str(path), n, PATTERN_PROC_MEM))
+        if line.strip() == "":
+            continue
+        if run_indent is not None:
+            if _indent(line) > run_indent:
+                out += _h1_hits(path, line, n)
+                continue
+            run_indent = None
+        run = RUN_KEY_RE.match(line)
+        if run:
+            value = run["value"].strip()
+            if BLOCK_SCALAR_RE.match(value):
+                run_indent = len(run["lead"])
+            else:
+                out += _h1_hits(path, value, n)
+        uses = USES_RE.match(line)
+        if uses and not uses["ref"].startswith(LOCAL_ACTION_PREFIXES):
+            ref = uses["ref"].rpartition("@")
+            if not ref[1] or not SHA_RE.fullmatch(ref[2]):
+                out.append(Finding(CHECK_H4, SEVERITY_MED, str(path), n, PATTERN_UNPINNED_ACTION))
+    return out
+
+
 TARGETS = {
     (".claude", "settings.json"): (CHECK_H1, check_claude_settings),
     (".claude", "settings.local.json"): (CHECK_H1, check_claude_settings),
@@ -259,6 +316,9 @@ def target_for(path: Path) -> tuple[str, Callable[[Path, str], list[Finding]]] |
     target = TARGETS.get((path.parent.name.lower(), path.name.lower()))
     if target is None and path.name.lower() == "package.json":
         return CHECK_H3, check_package_json
+    if (target is None and path.suffix.lower() in WORKFLOW_SUFFIXES
+            and (path.parent.parent.name.lower(), path.parent.name.lower()) == WORKFLOW_DIRS):
+        return CHECK_H4, check_workflow
     return target
 
 
@@ -267,6 +327,8 @@ def _symlink_findings(path: Path) -> list[Finding]:
     by_dir = {parent: cid for (parent, _), (cid, _) in TARGETS.items()}
     target = target_for(path)
     check_id = target[0] if target else by_dir.get(name)
+    if name == WORKFLOW_DIRS[0] or (name == WORKFLOW_DIRS[1] and path.parent.name.lower() == WORKFLOW_DIRS[0]):
+        check_id = CHECK_H4
     if check_id is None:
         return []
     return [Finding(check_id, SEVERITY_MED, str(path), 1, PATTERN_SYMLINKED_CONFIG)]
