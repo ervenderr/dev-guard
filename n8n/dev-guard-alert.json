@@ -27,7 +27,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $input.first().json.body;\nconst findings = body && Array.isArray(body.findings) ? body.findings : [];\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nconst MAX_LINES = 20;\nconst MAX_LINE_CHARS = 180;\nconst fps = [];\nconst lines = [];\nfor (const f of findings) {\n  if (!f || f.severity !== 'high') continue;\n  const fp = [f.check_id, f.file, f.line, f.pattern].join('|');\n  if (store.seen[fp]) continue;\n  if (lines.length >= MAX_LINES) break;\n  fps.push(fp);\n  lines.push((f.check_id + ' ' + f.file + ':' + f.line + ' ' + f.pattern).slice(0, MAX_LINE_CHARS));\n}\nreturn [{ json: { count: lines.length, fps, text: 'dev-guard: ' + lines.length + ' new high finding(s)\\n' + lines.join('\\n') } }];"
+        "jsCode": "const body = $input.first().json.body;\nconst findings = body && Array.isArray(body.findings) ? body.findings : [];\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nconst MAX_LINES = 20;\nconst MAX_LINE_CHARS = 180;\nconst fps = [];\nconst lines = [];\nconst key = (f) => JSON.stringify([f.check_id, f.file, f.line, f.pattern]);\n// forget fingerprints no longer reported, so a re-introduced finding alerts again\nif (body && Array.isArray(body.findings)) {\n  const current = new Set(findings.filter((f) => f && f.severity === 'high').map(key));\n  for (const k of Object.keys(store.seen)) if (!current.has(k)) delete store.seen[k];\n}\nfor (const f of findings) {\n  if (!f || f.severity !== 'high') continue;\n  const fp = key(f);\n  if (store.seen[fp]) continue;\n  if (lines.length >= MAX_LINES) break;\n  fps.push(fp);\n  lines.push((f.check_id + ' ' + f.file + ':' + f.line + ' ' + f.pattern).slice(0, MAX_LINE_CHARS));\n}\nreturn [{ json: { count: lines.length, fps, text: 'dev-guard: ' + lines.length + ' new high finding(s)\\n' + lines.join('\\n') } }];"
       }
     },
     {
@@ -91,7 +91,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Runs only after Telegram succeeded, so a failed send is retried on the next scan.\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nfor (const fp of $('Filter New Highs').first().json.fps) store.seen[fp] = true;\nreturn $input.all();"
+        "jsCode": "// Runs only after Telegram succeeded, so a failed send is retried on the next scan.\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\nfor (const fp of $('Filter New Highs').first().json.fps) store.seen[fp] = Date.now();\nreturn $input.all();"
       }
     }
   ],

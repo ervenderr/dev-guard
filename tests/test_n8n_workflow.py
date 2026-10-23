@@ -137,3 +137,20 @@ def test_message_is_capped_and_overflow_stays_unseen(wf, tmp_path):
     r = _run_node(wf, tmp_path, [{"body": body, "commit": True}] * 4)
     assert all(len(x["text"]) <= 4000 for x in r)
     assert r[0]["count"] == 20 and r[1]["count"] == 20 and r[2]["count"] == 10 and r[3]["count"] == 0
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_finding_that_disappears_and_returns_realerts(wf, tmp_path):
+    h1 = {"findings": [_f("high", "H1", 1)], "summary": {}}
+    gone = {"findings": [], "summary": {}}
+    r = _run_node(wf, tmp_path, [{"body": b, "commit": True} for b in (h1, h1, gone, h1)])
+    assert [x["count"] for x in r] == [1, 0, 0, 1]
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_pipe_in_fields_does_not_collide(wf, tmp_path):
+    a = {"check_id": "H1", "severity": "high", "file": "a|b", "line": 1, "pattern": "c"}
+    b = {"check_id": "H1", "severity": "high", "file": "a", "line": "b|1", "pattern": "c"}
+    r = _run_node(wf, tmp_path, [{"body": {"findings": [a], "summary": {}}, "commit": True},
+                                 {"body": {"findings": [a, b], "summary": {}}, "commit": True}])
+    assert [x["count"] for x in r] == [1, 1]
