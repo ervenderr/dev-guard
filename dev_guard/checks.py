@@ -13,6 +13,8 @@ from dev_guard.patterns import (
     HOME_CONFIG_FILES,
     HOOK_ALLOWLIST,
     MAX_FILE_BYTES,
+    OBFUSCATION_RE,
+    PATTERN_OBFUSCATED,
     PATTERN_MALFORMED_JSON,
     PATTERN_NOT_IN_ALLOWLIST,
     PATTERN_OVERSIZE_FILE,
@@ -117,6 +119,8 @@ def check_claude_settings(path: Path, text: str) -> list[Finding]:
             continue
         hits = _high(CHECK_H1, path, text, d)
         findings += hits
+        if OBFUSCATION_RE.search(" ".join(parts)):
+            findings.append(Finding(CHECK_H1, SEVERITY_MED, str(path), find_line(text, parts[0]), PATTERN_OBFUSCATED))
         if not hits and not is_allowlisted(" ".join(parts)):
             line = find_line(text, parts[0])
             findings.append(Finding(CHECK_H1, SEVERITY_MED, str(path), line, PATTERN_NOT_IN_ALLOWLIST))
