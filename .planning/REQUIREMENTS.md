@@ -31,7 +31,7 @@
 ### Tests & Docs
 - [x] **TEST-01**: Each check H1–H5 has a failing test on a malicious fixture and a passing test on a clean fixture
 - [x] **TEST-02**: Scan of a clean repo exits 0; scan of the fixtures exits 1 with the expected IDs
-- [ ] **DOC-01**: README documents install, usage, and the n8n webhook flow
+- [x] **DOC-01**: README documents install, usage, and the n8n webhook flow
 
 ### n8n Alerting (Phase 2)
 - [x] **ALERT-01**: A cron entry runs `dev-guard --json` on a schedule
@@ -81,4 +81,4 @@
 | ALERT-01 | Phase 4 | Complete |
 | ALERT-02 | Phase 4 | Complete |
 | ALERT-03 | Phase 4 | Complete |
-| DOC-01 | Phase 4 | Pending |
+| DOC-01 | Phase 4 | Complete |
