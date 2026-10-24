@@ -1,5 +1,7 @@
 # dev-guard
 
+![dev-guard showcase](docs/media/dev-guard-showcase.gif)
+
 A local, read-only CLI that spots the persistence and credential-theft tricks used by npm/PyPI supply-chain worms (for example Mini Shai-Hulud) in your dev config files, even when no CVE or advisory exists yet. It only parses text: it never executes scanned content, makes no network calls itself (only the optional alert wrapper below does), and never prints secret values (only check id, `file:line` and the matched pattern).
 
 | Check | Looks for |
